@@ -1,0 +1,50 @@
+name: Расписание КГМУ
+on:
+  schedule:
+    - cron: "17 2,8,14 * * *"   # 05:17, 11:17, 17:17 по Москве
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Свежее расписание с сайта КГМУ
+        if: github.event_name != 'push'
+        run: python scraper/update_friend.py || echo "::warning::Не удалось обновить расписание, оставляю прошлые данные"
+      - name: Сохранить расписание в репозиторий
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "schedule-bot@users.noreply.github.com"
+          git add schedule.json schedule-data.js
+          git diff --cached --quiet || git commit -m "Автообновление расписания $(date -u +'%F %H:%M')"
+          git pull --rebase -X theirs origin main && git push || echo "::warning::Не удалось сохранить расписание"
+      - name: Собрать сайт
+        run: |
+          mkdir _site
+          rsync -a --exclude '.git' --exclude '.github' --exclude 'scraper' --exclude 'raw' --exclude '_site' --exclude 'requirements.txt' ./ _site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
