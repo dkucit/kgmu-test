@@ -67,11 +67,12 @@
   function plural(n, a, b, c) { var m10 = n % 10, m100 = n % 100; return n + ' ' + (m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c); }
   function niceDate(key) { var d = parseISO(key); return DOW[dow(key)] + ', ' + d.getDate() + ' ' + MON[d.getMonth()]; }
   function ddmm(key) { var d = parseISO(key); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0'); }
+  function fullName(e) { return subjTitle(e.fullSubject || e.subject); }
   function isLive(e) { return e.changeFlag !== 'cancel' && e.changeFlag !== 'moved-away'; }
   function roomChip(loc) {
     loc = String(loc || '').trim(); if (!loc) return '';
-    var m = /^(НУК|ГУК|УЛК(?:\s*№\s*\d+)?|ОСЦ|СП)\b[^,]*(?:,\s*(?:лекц\.\s*)?ауд\.\s*("?[0-9A-Za-zА-Яа-яЁё\-]+"?))?/.exec(loc);
-    if (m) return (m[1].replace(/\s*№\s*/, '') + (m[2] ? ' ' + m[2].replace(/"/g, '') : '')).slice(0, 14);
+    var m = /^(НУК|ГУК|УЛК(?:\s*№\s*\d+)?|ОСЦ|СП)(?=[\s,]|$)[^,]*(?:,\s*(?:лекц\.\s*)?ауд\.\s*("?[0-9A-Za-zА-Яа-яЁё\-]+"?)(?!\s*этаж))?/.exec(loc);
+    if (m) return (m[1].replace(/\s*№\s*/, '') + (m[2] ? ' ' + m[2].replace(/"/g, '') : /лекц/.test(loc) ? ' лекц.' : '')).slice(0, 14);
     var h = /больниц\S*\s*№\s*(\d+)/i.exec(loc);
     if (h) return (/клиническ/i.test(loc) ? 'ГКБ №' : 'ГБ №') + h[1];
     if (/Республиканск\S* клиническ/i.test(loc)) return 'РКБ';
@@ -194,12 +195,12 @@
       else if (cur) {
         var e = cur[0], left = mins(e.end) - now;
         label = 'сейчас идёт'; icon = 'play'; cls = 'is-now';
-        title = subjTitle(e.subject); sub = 'До конца ' + plural(left, 'минута', 'минуты', 'минут') + (roomChip(e.shortLocation || e.location) ? ' · ' + roomChip(e.shortLocation || e.location) : '');
+        title = fullName(e); sub = 'До конца ' + plural(left, 'минута', 'минуты', 'минут') + (roomChip(e.shortLocation || e.location) ? ' · ' + roomChip(e.shortLocation || e.location) : '');
         prog = Math.round((now - mins(e.start)) / Math.max(1, mins(e.end) - mins(e.start)) * 100);
       } else if (next && now < mins(live[0][0].start)) {
-        label = 'сегодня'; icon = 'clock'; title = 'Первая пара в ' + next[0].start; sub = subjTitle(next[0].subject);
+        label = 'сегодня'; icon = 'clock'; title = 'Первая пара в ' + next[0].start; sub = fullName(next[0]);
       } else if (next) {
-        label = 'перерыв'; icon = 'cup'; title = 'Следующая в ' + next[0].start; sub = subjTitle(next[0].subject);
+        label = 'перерыв'; icon = 'cup'; title = 'Следующая в ' + next[0].start; sub = fullName(next[0]);
       } else {
         label = 'на сегодня всё'; icon = 'moon'; title = 'Пары закончились';
         var tm = addDays(t, 1); if (dow(tm) === 6) tm = addDays(tm, 1);
@@ -233,7 +234,8 @@
   }
   function slotHTML(s, key, idx, nowState) {
     var e = s[0], subjects = [], seen = {};
-    s.forEach(function (x) { var t = subjTitle(x.subject); if (!seen[t]) { seen[t] = 1; subjects.push(t); } });
+    var names = [], seenN = {};
+    s.forEach(function (x) { var t = subjTitle(x.subject); if (!seen[t]) { seen[t] = 1; subjects.push(t); } var f = fullName(x); if (!seenN[f]) { seenN[f] = 1; names.push(f); } });
     var allCancel = !s.some(isLive);
     var flag = (s.find(function (x) { return x.changeFlag; }) || {}).changeFlag || '';
     var flagText = { cancel: 'Отменено', 'moved-away': 'Перенесено', 'moved-in': 'Перенесено сюда', move: 'Новое время', change: 'Изменено' }[flag] || '';
@@ -252,7 +254,7 @@
       '<div class="kg-card-top"><span class="kg-tag ' + tcls + '">' + type + '</span>' + (flagText ? '<span class="kg-flag ' + esc(flag) + '">' + flagText + '</span>' : '') +
       (md ? '<span class="kg-mark mod">Модуль</span>' : '') + (hw ? '<span class="kg-mark hw">ДЗ</span>' : '') +
       '<span class="kg-chips">' + chips.slice(0, 2).map(function (c) { return '<span class="kg-room">' + esc(c) + '</span>'; }).join('') + '</span></div>' +
-      '<div class="kg-subj">' + esc(subjects.join(' / ')) + '</div>' +
+      '<div class="kg-subj">' + esc(names.join(' / ')) + '</div>' +
       '<div class="kg-meta">' + esc([teachers.slice(0, 2).join(', '), sub].filter(Boolean).join(' · ')) + '</div>';
     if (nowState === 'is-now') {
       var now = kazanClockMinutes(), p = Math.round((now - mins(e.start)) / Math.max(1, mins(e.end) - mins(e.start)) * 100);
@@ -263,7 +265,7 @@
       s.forEach(function (x) {
         var v = null; try { v = placeInfo(x); } catch (er) {}
         var place = x.location || x.shortLocation || '';
-        h += '<div class="kg-more-item">' + (x.subgroup && s.length > 1 ? '<div class="kg-more-sg">' + esc(x.subgroup) + '-я подгруппа · ' + esc(subjTitle(x.subject)) + '</div>' : '') +
+        h += '<div class="kg-more-item">' + (x.subgroup && s.length > 1 ? '<div class="kg-more-sg">' + esc(x.subgroup) + '-я подгруппа · ' + esc(fullName(x)) + '</div>' : '') +
           '<div>' + ic('pin') + '<span>' + esc(place) + (v && v.address ? '<br><small>' + esc(v.address) + '</small>' : '') + '</span></div>' +
           (x.teacher ? '<div class="kg-more-t">' + esc(x.teacher) + '</div>' : '') +
           (place ? '<a class="kg-link" target="_blank" rel="noopener" href="' + esc(mapLink(v && v.address ? v.address : place)) + '">Открыть на карте</a>' : '') + '</div>';
@@ -312,7 +314,7 @@
       if (!slots.length) h += '<div class="kg-wrow kg-wnone">Пар нет</div>';
       slots.forEach(function (s) {
         var e = s[0], subj = [], seen = {}, live = s.some(isLive);
-        s.forEach(function (x) { var tt = subjTitle(x.subject); if (!seen[tt]) { seen[tt] = 1; subj.push(tt); } });
+        s.forEach(function (x) { var tt = fullName(x); if (!seen[tt]) { seen[tt] = 1; subj.push(tt); } });
         var c = roomChip(e.shortLocation || e.location);
         h += '<div class="kg-wrow' + (live ? '' : ' is-cancel') + '"><span class="kg-wt">' + esc(e.start) + '</span><span class="kg-ws">' + esc(subj.join(' / ')) + '</span>' + (c ? '<span class="kg-room">' + esc(c) + '</span>' : '') + '</div>';
       });
