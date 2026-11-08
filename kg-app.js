@@ -531,13 +531,22 @@
       f.__kg = true; window[name] = f;
     } catch (e) {}
   }
+  /* Группа из ссылки бота (?studyGroup=) не должна затирать группу, выбранную вручную */
+  function rememberGroup() {
+    try {
+      var u = new URL(location.href), g = u.searchParams.get('studyGroup'), from = window.KG_URL_GROUP || g, cur = selectedStudyGroup;
+      if (from && cur && from !== cur) localStorage.setItem('kg-group-override', JSON.stringify({ from: from, to: cur }));
+      else if (from) localStorage.removeItem('kg-group-override');
+      if (g && g !== cur) { u.searchParams.set('studyGroup', cur); history.replaceState(history.state, '', u); }
+    } catch (e) {}
+  }
   function boot() {
     mount();
     wrap('render', renderSoon);
     wrap('applyTheme', applyTGTheme);
     wrap('newsRender', renderSoon);
     wrap('cloudLoadPermissions', renderSoon);
-    wrap('activateStudyGroup', function () { state.date = null; state.open = null; goHome(true); });
+    wrap('activateStudyGroup', function () { state.date = null; state.open = null; rememberGroup(); goHome(true); });
     applyTGTheme();
     render();
     setInterval(function () { if (!state.page && !document.hidden) render(); }, 60000);
