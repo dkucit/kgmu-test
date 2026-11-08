@@ -31,6 +31,12 @@ PROGRAM_LABELS = {"lechebnoe": "Лечебное дело", "pediatriya": "Пе�
                   "biofizika": "Медицинская биофизика", "biohimiya": "Медицинская биохимия",
                   "psihologiya": "Психология", "sestrinskoe": "Сестринское дело", "socrabota": "Социальная работа"}
 PROGRAM_ORDER = list(PROGRAM_LABELS)
+_NORM = {re.sub(r"[\s\u00a0]+", "", k).lower(): v for k, v in PROGRAM_BY_PROG.items()}
+
+
+def prog_of(name):
+    """Направление по названию со страницы вуза (без учёта пробелов и переносов строк)."""
+    return _NORM.get(re.sub(r"[\s\u00a0]+", "", str(name)).lower())
 
 
 def gkey(g):
@@ -163,7 +169,7 @@ def export(raw: Path, template: dict, out: Path, all_groups: bool = True):
     new_meta = {}  # группы, которых ещё нет на сайте: program/course
     if all_groups:  # сначала узнаём все группы нужных направлений
         for m in manifest:
-            prog = PROGRAM_BY_PROG.get(m["prog"])
+            prog = prog_of(m["prog"])
             if not prog or not m["fn"].endswith(".xlsx"):
                 continue
             _, res, _ = parse_file(raw / m["fn"])
@@ -176,9 +182,9 @@ def export(raw: Path, template: dict, out: Path, all_groups: bool = True):
         for g in new_meta:
             result.setdefault(g, [])
     for m in manifest:
-        if m["prog"] not in PROGRAM_BY_PROG or not m["fn"].endswith(".xlsx"):
+        if not prog_of(m["prog"]) or not m["fn"].endswith(".xlsx"):
             continue
-        if not all_groups and PROGRAM_BY_PROG[m["prog"]] not in template["programs"]:
+        if not all_groups and prog_of(m["prog"]) not in template["programs"]:
             continue
         path = raw / m["fn"]
         first = openpyxl.load_workbook(path, read_only=True).worksheets[0]
