@@ -7,6 +7,14 @@ const KGMU_CLOUD = Object.freeze({
 });
 const CLOUD_SESSION_KEY = 'kgmu-v86-auth-session';
 const CLOUD_VISITOR_KEY = 'kgmu-v86-anonymous-session';
+const CLOUD_TG_KEY = 'kgmu-tg-session';
+const KG_TG_FN = KGMU_CLOUD.url + '/functions/v1/tg-auth';
+const KG_ROLE_RU = {admin:'Администратор', starosta:'Староста', editor:'Помощник старосты'};
+let kgTgInit = '';
+try { kgTgInit = window.Telegram?.WebApp?.initData || ''; const m = location.hash.match(/tgWebAppData=([^&]+)/);
+  if (!kgTgInit && m) kgTgInit = decodeURIComponent(m[1]);
+  if (kgTgInit) sessionStorage.setItem('kg-tg-initdata', kgTgInit); else kgTgInit = sessionStorage.getItem('kg-tg-initdata') || '';
+} catch (_) {}
 let cloudSession = null;
 let cloudAssignments = [];
 let cloudNotes = [];
@@ -22,6 +30,13 @@ function cloudCanEdit(gr=selectedStudyGroup) {
 }
 function cloudCanContribute(){return Boolean(navigator.onLine!==false);}
 function cloudCanEditNote(n){return !n?false:(!n._remote || cloudCanEdit() || Boolean(cloudSession?.user?.id && n._remoteOwnerId===cloudSession.user.id));}
+function kgTgUser(){ const m=cloudSession?.user?.user_metadata; return m?.tg_id ? m : null; }
+function kgTgName(){ const u=kgTgUser(); return u ? (u.username ? '@'+u.username : (u.name || 'ID '+u.tg_id)) : ''; }
+function cloudRoleIn(gr=selectedStudyGroup){
+  const mine=cloudAssignments.filter(a=>a.study_group===gr||a.study_group==='*');
+  for(const r of ['admin','starosta','editor']) if(mine.some(a=>a.role===r)) return r;
+  return '';
+}
 function cloudCanAdmin(gr=selectedStudyGroup) {
   return Boolean(cloudSession?.access_token && cloudAssignments.some(a => a.role === 'admin' && (a.study_group === gr || a.study_group === '*')));
 }
@@ -59,9 +74,11 @@ function cloudSetStatus(value){ cloudStatus=value;cloudUpdateUI(); }
 function cloudUpdateUI(){
   const el=document.getElementById('cloudStatus');if(el)el.textContent=cloudStatus;
   const actor=document.getElementById('cloudAccount');
-  if(actor)actor.textContent=cloudSession?.user?.email ? 'Вход администратора: '+cloudSession.user.email : cloudSession?.user?.is_anonymous ? 'Участник без регистрации · записи привязаны к этому браузеру' : 'Чтение без регистрации · при публикации создастся анонимная учётная запись';
+  if(actor)actor.textContent=kgTgUser() ? '✈️ Вход через Telegram: '+kgTgName() : cloudSession?.user?.email ? 'Вход по почте: '+cloudSession.user.email : cloudSession?.user?.is_anonymous ? 'Участник без регистрации · записи привязаны к этому браузеру' : 'Чтение без регистрации · при публикации создастся анонимная учётная запись';
   const roles=document.getElementById('cloudRoles');
-  if(roles)roles.textContent=cloudCanAdmin()?'Администратор':cloudCanEdit()?'Редактор группы '+selectedStudyGroup:'Любой студент может публиковать ДЗ и модули';
+  const myRole=cloudRoleIn();
+  if(roles)roles.textContent=myRole==='admin'?'Администратор':myRole?KG_ROLE_RU[myRole]+' группы '+selectedStudyGroup:'Любой студент может публиковать ДЗ и модули';
+  const tgBox=document.getElementById('kgTgLogin');if(tgBox)tgBox.hidden=Boolean(kgTgUser());
   const login=document.getElementById('cloudLoginForm');if(login)login.hidden=Boolean(cloudSession?.user?.email);
   const logout=document.getElementById('cloudLogout');if(logout)logout.hidden=!cloudSession?.user?.email;
   const publish=document.getElementById('cloudPublishLocal');
@@ -79,6 +96,7 @@ function cloudSaveSession(session){
   cloudSession=session;
   try{
     if(session?.user?.is_anonymous) localStorage.setItem(CLOUD_VISITOR_KEY,JSON.stringify(session));
+    else if(session?.user?.user_metadata?.tg_id) localStorage.setItem(CLOUD_TG_KEY,JSON.stringify(session));
     else if(session?.access_token) sessionStorage.setItem(CLOUD_SESSION_KEY,JSON.stringify(session));
     else sessionStorage.removeItem(CLOUD_SESSION_KEY);
   }catch(_){}
@@ -112,7 +130,8 @@ async function cloudRefreshToken(){
     const payload=await response.json().catch(()=>({}));
     if(!response.ok){
       const anon=Boolean(cloudSession?.user?.is_anonymous);
-      try{if(anon)localStorage.removeItem(CLOUD_VISITOR_KEY);else sessionStorage.removeItem(CLOUD_SESSION_KEY);}catch(_){}
+      try{if(anon)localStorage.removeItem(CLOUD_VISITOR_KEY);else{sessionStorage.removeItem(CLOUD_SESSION_KEY);localStorage.removeItem(CLOUD_TG_KEY);}}catch(_){}
+      if(!anon&&kgTgInit){try{return await kgTgLogin({initData:kgTgInit},true,true);}catch(_){}}
       cloudSaveSession(null);cloudAssignments=[];cloudUpdateUI();
       throw Error(anon?'Сеанс участника истёк. При следующей публикации потребуется новый вход':'Сеанс администратора истёк. Войдите снова');
     }
@@ -169,7 +188,7 @@ function cloudGroupChanged(){
 async function cloudLoadPermissions(){
   if(!cloudSession){cloudAssignments=[];cloudUpdateUI();return;}
   try{
-    const roles=await cloudRequest('/rest/v1/kgmu_editors?select=study_group,role&limit=500');
+    const roles=await cloudRequest('/rest/v1/rpc/kgmu_my_roles',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     cloudAssignments=Array.isArray(roles)?roles:[];
   }catch(e){cloudAssignments=[];cloudSetStatus('Не удалось получить права редактора: '+e.message);}
   cloudUpdateUI();
@@ -194,7 +213,7 @@ async function cloudLogin(ev){
 }
 async function cloudLogout(){
   const token=cloudSession?.access_token;
-  try{sessionStorage.removeItem(CLOUD_SESSION_KEY);}catch(_){}
+  try{sessionStorage.removeItem(CLOUD_SESSION_KEY);localStorage.removeItem(CLOUD_TG_KEY);}catch(_){}
   cloudSession=null;
   cloudAssignments=[];
   try{const s=JSON.parse(localStorage.getItem(CLOUD_VISITOR_KEY)||'null');if(s?.access_token&&s?.refresh_token)cloudSession=s;}catch(_){}
@@ -305,7 +324,7 @@ function cloudShowRecordSource(n){
 function cloudShowAmendmentSource(a){return a._remote?' · ☁ общая запись':' · 📱 только у вас';}
 async function cloudInit(){
   try{
-    const s=JSON.parse(sessionStorage.getItem(CLOUD_SESSION_KEY)||'null');
+    const s=JSON.parse(localStorage.getItem(CLOUD_TG_KEY)||sessionStorage.getItem(CLOUD_SESSION_KEY)||'null');
     if(s?.access_token&&s?.refresh_token)cloudSession=s;
     else{const visitor=JSON.parse(localStorage.getItem(CLOUD_VISITOR_KEY)||'null');if(visitor?.access_token&&visitor?.refresh_token)cloudSession=visitor;}
   }catch(_){cloudSession=null;}
@@ -314,7 +333,12 @@ async function cloudInit(){
   document.getElementById('cloudLogout')?.addEventListener('click',cloudLogout);
   document.getElementById('cloudRefresh')?.addEventListener('click',()=>cloudRefreshGroup());
   document.getElementById('cloudPublishLocal')?.addEventListener('click',cloudPublishLocal);
+  kgTgMountUI();
   cloudUpdateUI();
+  const tgNow=kgTgUser();
+  if(kgTgInit && (!tgNow || String(tgNow.tg_id)!==String(kgTgUserFromInit()?.id))){
+    try{await kgTgLogin({initData:kgTgInit},true);}catch(e){console.warn('TG auto-login:',e);}
+  }
   if(cloudSession && !cloudSession.user?.is_anonymous)await cloudLoadPermissions();
   if(selectedStudyGroup)await cloudRefreshGroup();else cloudSetStatus('Выберите группу для загрузки общих записей');
   window.addEventListener('focus',()=>{if(selectedStudyGroup)cloudRefreshGroup(true);});
@@ -355,3 +379,51 @@ cloudRefreshGroup=async function(quiet){
   }catch(_){}
   return res;
 };
+
+/* KGMU: вход через Telegram — автоматически в мини-приложении, кнопкой Telegram Login на сайте. */
+function kgTgUserFromInit(){try{return JSON.parse(new URLSearchParams(kgTgInit).get('user')||'null');}catch(_){return null;}}
+async function kgTgLogin(payload,quiet=false,light=false){
+  if(!quiet)cloudSetStatus('Входим через Telegram…');
+  const r=await fetch(KG_TG_FN,{method:'POST',headers:{'Content-Type':'application/json','apikey':KGMU_CLOUD.key},body:JSON.stringify(payload)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||!j.session?.access_token)throw Error(j.error||'Не удалось войти через Telegram');
+  cloudSaveSession(j.session);
+  if(light)return j.session;
+  await cloudLoadPermissions();
+  if(selectedStudyGroup)await cloudRefreshGroup(true);
+  const role=cloudRoleIn();
+  cloudSetStatus('Вход через Telegram · '+kgTgName()+(role?' · '+KG_ROLE_RU[role]:''));
+  return j.session;
+}
+window.kgTgOnAuth=async function(user){
+  try{await kgTgLogin({widget:user});toast('✈️ Вы вошли через Telegram');}
+  catch(e){cloudSetStatus('Ошибка входа: '+e.message);}
+};
+async function kgTgBotName(){
+  try{const c=localStorage.getItem('kg-tg-bot');if(c)return c;}catch(_){}
+  const r=await fetch(KG_TG_FN,{method:'POST',headers:{'Content-Type':'application/json','apikey':KGMU_CLOUD.key},body:'{"action":"config"}'});
+  const j=await r.json().catch(()=>({}));
+  if(j.bot_username){try{localStorage.setItem('kg-tg-bot',j.bot_username);}catch(_){}}
+  return j.bot_username||'';
+}
+function kgTgMountUI(){
+  const panel=document.getElementById('cloudPanel'),form=document.getElementById('cloudLoginForm');
+  if(!panel||!form||document.getElementById('kgTgLogin'))return;
+  const box=document.createElement('div');box.id='kgTgLogin';box.className='kg-tg-login';
+  box.innerHTML='<p><b>Войдите через Telegram</b>, чтобы старосты и помощники могли подтверждать ДЗ и публиковать изменения пар. Роли выдаются в боте.</p><div id="kgTgWidget">'+(kgTgInit?'Входим автоматически…':'Загрузка кнопки…')+'</div>';
+  form.parentNode.insertBefore(box,form);
+  const det=document.createElement('details');det.className='kg-mail-login';det.innerHTML='<summary>Вход по почте (старые аккаунты)</summary>';
+  form.parentNode.insertBefore(det,form);det.appendChild(form);
+  const st=document.createElement('style');st.textContent='.kg-tg-login{margin:10px 0;padding:12px;border-radius:14px;background:rgba(42,171,238,.08);border:1px solid rgba(42,171,238,.35)}.kg-tg-login p{margin:0 0 8px}.kg-mail-login{margin:8px 0}.kg-mail-login summary{cursor:pointer;font-size:13px;opacity:.8}';
+  document.head.appendChild(st);
+  if(kgTgInit)return;
+  kgTgBotName().then(name=>{
+    const w=document.getElementById('kgTgWidget');if(!w)return;
+    if(!name){w.textContent='Кнопка входа временно недоступна';return;}
+    w.textContent='';
+    const sc=document.createElement('script');sc.async=true;sc.src='https://telegram.org/js/telegram-widget.js?22';
+    sc.setAttribute('data-telegram-login',name);sc.setAttribute('data-size','large');sc.setAttribute('data-radius','12');
+    sc.setAttribute('data-onauth','kgTgOnAuth(user)');sc.setAttribute('data-request-access','write');
+    w.appendChild(sc);
+  }).catch(()=>{});
+}
