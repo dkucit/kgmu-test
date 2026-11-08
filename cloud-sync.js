@@ -2,8 +2,8 @@
    an anonymous Supabase identity; only the author/group editors can edit/delete.
    Schedule amendments remain editor-only. Legacy browser records are preserved. */
 const KGMU_CLOUD = Object.freeze({
-  url: 'https://kddccbkktqzszljyrqdm.supabase.co',
-  key: 'sb_publishable_qDYypqP1HYX9iGKSQmnOWA_UpMY7_TC'
+  url: 'https://aqnpusacmyovveljyqdd.supabase.co',
+  key: 'sb_publishable_OKj7RqRpofSaGMwgvgAfyw_2vMJwdmY'
 });
 const CLOUD_SESSION_KEY = 'kgmu-v86-auth-session';
 const CLOUD_VISITOR_KEY = 'kgmu-v86-anonymous-session';
