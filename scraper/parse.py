@@ -15,6 +15,7 @@ from pathlib import Path
 import openpyxl
 
 DAYS = {"ПН": 0, "ВТ": 1, "СР": 2, "ЧТ": 3, "ПТ": 4, "СБ": 5, "ВС": 6}
+GROUP_STREAMS = {}  # группа -> номер потока из строки «ПОТОК» в таблице
 GROUP_RE = re.compile(r"^[А-ЯA-Z]?\d{3,5}[а-яa-zА-ЯA-Z]*(-\d+)?$")
 # Нерабочие праздничные дни (циклы по ним не идут)
 HOLIDAYS = {"2026-11-04", "2026-12-31", "2027-01-01", "2027-01-02", "2027-01-03", "2027-01-04",
@@ -185,6 +186,13 @@ def parse_grid_sheet(ws, week=None):
             break
     if not groups:
         return {}
+    for r in range(first - 1, 0, -1):
+        if str(grid.get((r, 3), "")).strip().upper() == "ПОТОК" or str(grid.get((r, 2), "")).strip() == "Поток":
+            for col, g in groups.items():
+                v = str(grid.get((r, col), "")).strip()
+                if v.isdigit() and v != "0":
+                    GROUP_STREAMS[g] = v
+            break
     times = {}
     for r in day_rows:
         times[r] = (fmt_time(grid.get((r, 2))), fmt_time(grid.get((r, 3))))
