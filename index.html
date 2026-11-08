@@ -1002,6 +1002,7 @@ button:where(.header-icon-btn,.day-switch-btn,.module-open,.change-group-btn,.sh
 
 </style>
 <script src="./schedule-data.js"></script>
+<link rel="stylesheet" href="./kg-theme.css">
 <style>.data-tools{display:none}body.kg-admin .data-tools{display:block}</style>
 </head>
 <body><section aria-label="Выбор учебной группы" class="chooser-view" id="groupChooser">
@@ -1020,7 +1021,7 @@ button:where(.header-icon-btn,.day-switch-btn,.module-open,.change-group-btn,.sh
 <div class="chooser-grid" id="chooserGroups"></div><section class="kg-news-board kg-news-landing" id="kgNewsLanding" hidden aria-label="Общие объявления"><div class="kg-news-heading"><h2>📣 Объявления для всех</h2></div><div id="kgNewsLandingList"></div></section>
 <div class="chooser-tip">Источник: утверждённые расписания КГМУ от <strong>20.08.2026</strong>, осень 2026/27. После подписания могли появиться изменения: сайт пока не обновляет их автоматически. Циклы стоматологии показываются как периоды и требуют сверки дней занятий.</div>
 </div>
-<footer class="developer-footer chooser-footer">Разработчик · <a href="https://t.me/brainfucker01" rel="noopener noreferrer" target="_blank">Telegram: @brainfucker01</a><span>Неофициальный студенческий проект</span><button class="report-btn" type="button" data-report>Сообщить о проблеме</button></footer>
+<footer class="developer-footer chooser-footer">Разработчики · <a href="https://t.me/brainfucker01" rel="noopener noreferrer" target="_blank">@brainfucker01</a> · <a href="https://t.me/dkkk111111" rel="noopener noreferrer" target="_blank">@dkkk111111</a><span>Неофициальный студенческий проект</span><button class="report-btn" type="button" data-report>Сообщить о проблеме</button></footer>
 </div>
 </section><div hidden="" id="appRoot"><header class="herohead"><div class="wrap compact-hero">
 <div class="mini-logo"><img alt="Герб КГМУ" src="./img/kgmu-logo.webp"/></div>
@@ -1351,7 +1352,7 @@ button:where(.header-icon-btn,.day-switch-btn,.module-open,.change-group-btn,.sh
 <div class="settings-section"><h3>Версия приложения</h3><p>КГМУ · V8.7 Community · новости и общий архив · синхронизация Supabase · 84 учебные группы · три направления, 1–3 курсы. Интерактивное расписание, календарь, ДЗ, модули, материалы, адреса корпусов, временные изменения и персональные настройки.</p></div>
 </div>
 </section>
-<footer class="developer-footer">Разработчик · <a href="https://t.me/brainfucker01" rel="noopener noreferrer" target="_blank">Telegram: @brainfucker01</a><span>Неофициальный студенческий проект · V8.7.1</span><button class="report-btn" type="button" data-report>Сообщить о проблеме</button></footer></main></div>
+<footer class="developer-footer">Разработчики · <a href="https://t.me/brainfucker01" rel="noopener noreferrer" target="_blank">@brainfucker01</a> · <a href="https://t.me/dkkk111111" rel="noopener noreferrer" target="_blank">@dkkk111111</a><span>Неофициальный студенческий проект · V8.8</span><button class="report-btn" type="button" data-report>Сообщить о проблеме</button></footer></main></div>
 
 
 <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportDialogTitle">
@@ -2247,6 +2248,7 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 </script>
 <script src="./cloud-sync.js"></script>
 <script src="./community-extras.js"></script>
+<script src="./kg-ui.js"></script>
 <script>setInterval(function(){try{document.body.classList.toggle("kg-admin",typeof newsAdmin==="function"&&!!newsAdmin())}catch(e){}},2000);</script>
 </body>
 </html>
