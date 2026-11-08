@@ -140,7 +140,7 @@ async function cloudReadGroup(gr){
   ]);
   if(!Array.isArray(nr)||!Array.isArray(ar))throw Error('Некорректный ответ сервера');
   if(nr.length>=1000||ar.length>=1000)throw Error('Слишком много записей: требуется постраничная загрузка');
-  return {notes:nr.filter(validNote).map(n=>({...sanitizeNote(n),_remoteOwnerId:n.created_by||n.updated_by||null})),amendments:ar.map(a=>({...a,eventId:a.event_id,targetDate:a.target_date,newStart:a.new_start,newEnd:a.new_end,newLocation:a.new_location,newTeacher:a.new_teacher})).filter(validAmendment).map(sanitizeAmendment)};
+  return {notes:nr.filter(validNote).map(n=>({...sanitizeNote(n),_remoteOwnerId:n.created_by||n.updated_by||null,_status:n.status||'approved'})),amendments:ar.map(a=>({...a,eventId:a.event_id,targetDate:a.target_date,newStart:a.new_start,newEnd:a.new_end,newLocation:a.new_location,newTeacher:a.new_teacher})).filter(validAmendment).map(sanitizeAmendment)};
 }
 async function cloudRefreshGroup(quiet=false){
   const gr=selectedStudyGroup;
@@ -216,7 +216,7 @@ function cloudPrepareNoteEditor(prev){
   field.checked=existingCloud || (!prev&&cloudCanContribute());
   field.disabled=existingCloud;
   document.getElementById('editCloudHint').textContent=existingCloud?'Общую запись может изменить автор или редактор группы.':
-    'Отметьте, чтобы все студенты группы увидели запись. Без отметки она останется только в вашем браузере.';
+    'Отметьте, чтобы запись увидела вся группа — после подтверждения старосты. Без отметки она останется только в вашем браузере.';
 }
 function cloudPrepareChangeEditor(){
   const field=document.getElementById('changeCloud');if(!field)return;
@@ -243,7 +243,7 @@ async function cloudSaveNote(n,prev){
     if(prev?._remote&&!cloudCanEditNote(prev))throw Error('Можно изменять только собственные общие записи');
     await cloudWrite('kgmu_notes',cloudNotePayload(n),!!prev?._remote);
     document.getElementById('recordEditor').hidden=true;editId=null;
-    await cloudRefreshGroup(true);toast('☁ Запись опубликована для группы');
+    await cloudRefreshGroup(true);toast(cloudCanEdit()?'☁ Запись опубликована для группы':'⏳ Отправлено старосте на подтверждение');
   }catch(e){toast('Не опубликовано: '+e.message);}
 }
 async function cloudDeleteNote(n){
@@ -292,7 +292,16 @@ async function cloudPublishLocal(){
     toast('☁ Добавлено общих записей: '+published+' · локальные копии сохранены');
   }catch(e){cloudSetStatus('Публикация остановлена: '+e.message+' · локальные данные сохранены');}
 }
-function cloudShowRecordSource(n){return n._remote?' · ☁ общая запись':' · 📱 только у вас';}
+function cloudShowRecordSource(n){
+  if(!n._remote)return ' · 📱 только у вас';
+  if(n._status==='pending'){
+    let s=' · <span class="kg-pending">⏳ ждёт подтверждения старосты</span>';
+    if(cloudCanEdit())s+=' <button class="small-btn kg-mod-btn" type="button" data-approve-note="'+cloudEsc(n.id)+'">✓ Подтвердить</button><button class="small-btn kg-mod-btn" type="button" data-reject-note="'+cloudEsc(n.id)+'">✕ Отклонить</button>';
+    return s;
+  }
+  if(n._status==='rejected')return ' · <span class="kg-rejected">✕ отклонено старостой</span>';
+  return ' · ☁ общая запись';
+}
 function cloudShowAmendmentSource(a){return a._remote?' · ☁ общая запись':' · 📱 только у вас';}
 async function cloudInit(){
   try{
@@ -314,3 +323,35 @@ async function cloudInit(){
   window.setInterval(()=>{if(!document.hidden&&navigator.onLine&&selectedStudyGroup)cloudRefreshGroup(true);},120000);
 }
 cloudInit();
+
+/* KGMU: модерация ДЗ — запись видна всей группе после подтверждения старосты (роль в kgmu_editors). */
+(function(){const st=document.createElement('style');st.textContent='.kg-pending{color:#b45309;font-weight:700}.kg-rejected{color:#b91c1c;font-weight:700}.kg-mod-btn{margin-left:6px}';document.head.appendChild(st);})();
+function cloudEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function cloudSetNoteStatus(id,status){
+  if(!cloudCanEdit()){toast('Подтверждать записи может только староста группы');return;}
+  try{
+    const r=await cloudRequest('/rest/v1/kgmu_notes?id=eq.'+encodeURIComponent(id)+'&study_group=eq.'+encodeURIComponent(selectedStudyGroup),{
+      method:'PATCH',headers:{'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({status})});
+    if(!Array.isArray(r)||r.length!==1)throw Error('Сервер не подтвердил изменение');
+    await cloudRefreshGroup(true);
+    toast(status==='approved'?'✓ ДЗ подтверждено — его видит вся группа':'✕ ДЗ отклонено');
+  }catch(e){toast('Ошибка: '+e.message);}
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-approve-note]'),r=e.target.closest('[data-reject-note]');
+  if(!a&&!r)return;
+  e.preventDefault();e.stopPropagation();
+  if(a)cloudSetNoteStatus(a.dataset.approveNote,'approved');else cloudSetNoteStatus(r.dataset.rejectNote,'rejected');
+},true);
+const kgOrigRefreshGroup=cloudRefreshGroup;
+cloudRefreshGroup=async function(quiet){
+  const res=await kgOrigRefreshGroup(quiet);
+  try{
+    if(cloudCanEdit()){
+      const n=cloudNotes.filter(x=>x._status==='pending').length;
+      if(n&&n!==window.kgPendingSeen)toast('📝 Ждут вашего подтверждения: '+n+' ДЗ');
+      window.kgPendingSeen=n;
+    }
+  }catch(_){}
+  return res;
+};
