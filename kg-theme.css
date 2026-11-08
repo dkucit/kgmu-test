@@ -75,7 +75,7 @@ body:not(.kg-editor) #cloudPanel :is(#cloudStatus,#cloudSourceHint,.cloud-warnin
 #cloudPanel .kg-tg-login{background:var(--accent-soft)!important;border:0!important;border-radius:14px!important}
 
 @media (prefers-reduced-motion:reduce){html body *{transition:none!important;animation:none!important}}
-html body .today-hero :is(.subgroup-switch,.today-subgroups,[class*="subgroup"]){background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.18)!important}
+html body .today-hero :is(.groupbuttons,.today-group-row .groupbuttons){background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.18)!important}
 html body #cloudPanel{border-left:0!important;padding-left:0!important;background:transparent!important;box-shadow:none!important}
 body:not(.kg-editor) #cloudPanel p:has(> #cloudRoles){display:none!important}
 body:not(.kg-tg) #cloudPanel #cloudAccount{display:none!important}
