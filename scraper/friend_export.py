@@ -16,11 +16,26 @@ from pathlib import Path
 import openpyxl
 
 sys.path.insert(0, str(Path(__file__).parent))
+import parse as P  # noqa: E402
 from parse import HOLIDAYS, clean, fmt_time, parse_file, to_date  # noqa: E402
 
 WEEK1 = dt.date(2026, 8, 31)
 MAX_WEEK = 18
-PROGRAM_BY_PROG = {"Лечебное дело": "lechebnoe", "Педиатрия": "pediatriya", "Стоматология": "stomatologiya"}
+PROGRAM_BY_PROG = {"Лечебное дело": "lechebnoe", "Педиатрия": "pediatriya", "Стоматология": "stomatologiya",
+                   "Медико-профилактическое дело": "medprof", "Фармация": "farmaciya",
+                   "Медицинская биофизика": "biofizika", "Медицинская биохимия": "biohimiya",
+                   "Психология (бакалавриат)": "psihologiya", "Сестринское дело (очн.)": "sestrinskoe",
+                   "Социальная работа (бакалавриат, очн.)": "socrabota"}
+PROGRAM_LABELS = {"lechebnoe": "Лечебное дело", "pediatriya": "Педиатрия", "stomatologiya": "Стоматология",
+                  "medprof": "Медико-профилактическое дело", "farmaciya": "Фармация",
+                  "biofizika": "Медицинская биофизика", "biohimiya": "Медицинская биохимия",
+                  "psihologiya": "Психология", "sestrinskoe": "Сестринское дело", "socrabota": "Социальная работа"}
+PROGRAM_ORDER = list(PROGRAM_LABELS)
+
+
+def gkey(g):
+    d = re.sub(r"\D", "", g)
+    return (len(d), d, g)
 
 
 def week_of(d):
@@ -134,7 +149,7 @@ def parse_cycles(path, wanted, short_names):
     return res
 
 
-def export(raw: Path, template: dict, out: Path):
+def export(raw: Path, template: dict, out: Path, all_groups: bool = True):
     groups_wanted = set(template["groups"])
     dev_groups = {g for g, evs in template["groups"].items() if not evs}
     short_names = {}
@@ -145,8 +160,25 @@ def export(raw: Path, template: dict, out: Path):
     manifest = json.loads((raw / "manifest.json").read_text("utf-8"))
     result = {g: [] for g in groups_wanted}
     used_sources = {}
+    new_meta = {}  # группы, которых ещё нет на сайте: program/course
+    if all_groups:  # сначала узнаём все группы нужных направлений
+        for m in manifest:
+            prog = PROGRAM_BY_PROG.get(m["prog"])
+            if not prog or not m["fn"].endswith(".xlsx"):
+                continue
+            _, res, _ = parse_file(raw / m["fn"])
+            for g, v in res.items():
+                if g not in groups_wanted:
+                    nm = new_meta.setdefault(g, {"program": prog, "course": str(v["course"] or "1")})
+                    if v["course"]:
+                        nm["course"] = str(v["course"])
+        groups_wanted |= set(new_meta)
+        for g in new_meta:
+            result.setdefault(g, [])
     for m in manifest:
         if m["prog"] not in PROGRAM_BY_PROG or not m["fn"].endswith(".xlsx"):
+            continue
+        if not all_groups and PROGRAM_BY_PROG[m["prog"]] not in template["programs"]:
             continue
         path = raw / m["fn"]
         first = openpyxl.load_workbook(path, read_only=True).worksheets[0]
@@ -181,6 +213,8 @@ def export(raw: Path, template: dict, out: Path):
                 uniq.append(e)
         uniq.sort(key=lambda e: (e["day"], e["start"], e["row"]))
         result[g] = uniq
+        if not uniq and g in new_meta:
+            continue  # новая группа без занятий в пределах семестра — не показываем
         if not uniq:
             problems.append(f"группа {g}: не найдено ни одного занятия")
         if len(uniq) > 1500:
@@ -188,21 +222,42 @@ def export(raw: Path, template: dict, out: Path):
     if problems:
         raise SystemExit("Экспорт остановлен, сайт оставит прошлые данные:\n  " + "\n  ".join(problems))
     meta = json.loads(json.dumps(template["groupMeta"]))
+    programs = json.loads(json.dumps(template["programs"]))
+    order = list(template["groups"])
+    added = sorted((g for g in new_meta if result.get(g)),
+                   key=lambda g: (PROGRAM_ORDER.index(new_meta[g]["program"]), int(new_meta[g]["course"]), gkey(g)))
+    for g in added:
+        nm = new_meta[g]
+        stream = P.GROUP_STREAMS.get(g, "1")
+        meta[g] = {"program": nm["program"], "course": nm["course"], "stream": stream,
+                   "source": used_sources.get(g, ""), "signed": template.get("signed"),
+                   "hasCycles": any(e["lessonType"] == "cycle" for e in result[g])}
+        prog = programs.setdefault(nm["program"], {"label": PROGRAM_LABELS[nm["program"]], "courses": {}})
+        lst = prog["courses"].setdefault(nm["course"], {}).setdefault(stream, [])
+        if g not in lst:
+            lst.append(g)
+        order.append(g)
+    for prog in programs.values():
+        prog["courses"] = {c: {st: sorted(gs, key=gkey) for st, gs in sorted(v.items())}
+                           for c, v in sorted(prog["courses"].items(), key=lambda kv: int(kv[0]))}
+    programs = {k: programs[k] for k in sorted(programs, key=lambda k: PROGRAM_ORDER.index(k) if k in PROGRAM_ORDER else 99)}
     for g, fn in used_sources.items():
         if g in meta:
             meta[g]["source"] = fn
     payload = {"format": "kgmu-v8-multigroup", "version": (template.get("version", "8.5").split("-auto")[0]) + "-auto",
                "updated": dt.date.today().isoformat(), "signed": template.get("signed"),
-               "programs": template["programs"], "groupMeta": meta,
-               "groups": {g: result[g] for g in template["groups"]}}
+               "programs": programs, "groupMeta": meta,
+               "groups": {g: result[g] for g in order}}
     out.mkdir(parents=True, exist_ok=True)
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     (out / "schedule.json").write_text(body, "utf-8")
     (out / "schedule-data.js").write_text(
         "/* Встроенная копия расписания (запасной вариант до загрузки schedule.json). Собрано автоматически. */\n"
-        "window.KGMU_EMBEDDED_GROUPS=" + json.dumps(payload["groups"], ensure_ascii=False, separators=(",", ":")) + ";\n",
+        "window.KGMU_EMBEDDED_GROUPS=" + json.dumps(payload["groups"], ensure_ascii=False, separators=(",", ":")) + ";\n"
+        "window.KGMU_PROGRAMS=" + json.dumps(payload["programs"], ensure_ascii=False, separators=(",", ":")) + ";\n"
+        "window.KGMU_GROUP_INFO=" + json.dumps(payload["groupMeta"], ensure_ascii=False, separators=(",", ":")) + ";\n",
         "utf-8")
-    print(f"✓ {sum(len(v) for v in result.values())} занятий в {len(result)} группах → {out}")
+    print(f"✓ {sum(len(v) for v in payload['groups'].values())} занятий в {len(payload['groups'])} группах → {out}")
     return payload
 
 
