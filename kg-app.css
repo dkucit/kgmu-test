@@ -190,5 +190,8 @@ html[data-theme="dark"] #kgApp .kg-seg button.active{background:rgba(255,255,255
 #kgTgSlot .kg-tg-login p{font-size:14px;color:var(--a-hint)}
 #kgTgSlot .kg-mail-login{padding:4px 6px 6px;font-size:13px;color:var(--a-hint)}
 
+#kgApp .kg-seg button{text-align:center;white-space:nowrap}
+html[data-theme="dark"] body.kg-on{--panel:rgba(255,255,255,.055);--panel-2:rgba(255,255,255,.085);--line:rgba(255,255,255,.09)}
+html.kg-tg-colors body.kg-on{--bg:var(--tg-bg)}
 @media (prefers-reduced-motion:reduce){.kg-drawer,.kg-scrim{transition:none}}
 @media (min-width:900px){.kg-home,.kg-page{padding-top:22px}}
