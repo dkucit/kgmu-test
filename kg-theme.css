@@ -1,0 +1,82 @@
+/* KGMU · минималистичная тема (поверх исходных стилей index.html) */
+:root{
+  --bg:#f4f6fa;--panel:#ffffff;--panel-2:#f7f9fc;--ink:#0f172a;--sub:#5b6b80;--line:#e5e9f0;
+  --accent:#2563eb;--accent-2:#2563eb;--accent-soft:#eaf1ff;--accent-ink:#1d4ed8;
+  --deep:#0f172a;--deep-2:#1e293b;--mint:#e9f7f3;--mint-ink:#0f766e;
+  --danger:#dc2626;--danger-soft:#fdeeee;--warn-soft:#fff6e6;
+  --shadow:0 1px 2px rgba(15,23,42,.04),0 6px 20px rgba(15,23,42,.05);
+  --shadow-soft:0 1px 2px rgba(15,23,42,.04);
+  --radius:16px;--kg-glass:rgba(255,255,255,.86);
+  --kg-font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#0b1018;--panel:#141b26;--panel-2:#1a2330;--ink:#e7edf6;--sub:#9aa8ba;--line:#253041;
+  --accent:#4f8cff;--accent-2:#4f8cff;--accent-soft:#1b2a44;--accent-ink:#9cc0ff;
+  --mint:#123532;--mint-ink:#8fe5d0;--danger-soft:#3a1d22;--warn-soft:#3a2e17;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);--shadow-soft:0 1px 2px rgba(0,0,0,.3);
+  --kg-glass:rgba(16,22,32,.86);
+}
+html body{background:var(--bg)!important;color:var(--ink);font-family:var(--kg-font)!important;-webkit-font-smoothing:antialiased;letter-spacing:-.006em}
+html body h1,html body h2,html body h3{letter-spacing:-.02em;font-weight:700}
+html body ::selection{background:var(--accent-soft)}
+
+/* Шапка: светлое «стекло» вместо тёмного градиента */
+html body .herohead{background:var(--kg-glass)!important;color:var(--ink)!important;border-bottom:1px solid var(--line)!important;
+  -webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);position:sticky;top:0;z-index:50;box-shadow:none!important}
+html body .herohead .mini-title{color:var(--ink);font-weight:700;letter-spacing:-.03em}
+html body .herohead .mini-title strong,html body .header-group-button{font-weight:800;color:var(--ink)}
+html body .header-group-button{text-decoration:none!important;background:var(--accent-soft)!important;color:var(--accent-ink)!important;padding:2px 8px!important;border-radius:8px!important}
+html body .mini-caption{color:var(--sub)!important;font-weight:500}
+html body .mini-logo{background:#fff;border:1px solid var(--line)!important;border-radius:12px!important;box-shadow:none}
+html body .header-icon-btn{background:var(--panel-2)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:12px!important;font-size:0!important;display:grid;place-items:center}
+html body .header-icon-btn svg{width:20px;height:20px}
+html body .header-icon-btn:hover{background:var(--accent-soft)!important;color:var(--accent-ink)!important}
+html body .semester-pill{color:var(--sub);background:var(--panel-2);border-color:var(--line)}
+
+/* Нижняя навигация */
+html body .app-tabs{background:var(--kg-glass)!important;-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);
+  border:0!important;border-top:1px solid var(--line)!important;box-shadow:0 -4px 24px rgba(15,23,42,.05)!important}
+html body .app-tab{color:var(--sub)!important;background:transparent!important;font-weight:600!important;box-shadow:none!important}
+html body .app-tab.active{color:var(--accent-ink)!important;background:var(--accent-soft)!important}
+html body .app-tab .tab-icon{font-size:0!important;display:grid;place-items:center;height:22px}
+html body .app-tab .tab-icon svg{width:22px;height:22px}
+@media (min-width:821px){html body .app-tabs{position:static!important;border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:none!important}}
+
+/* Карточки и поверхности */
+html body :is(.toolbar-card,.calendar-board,.calendar-day-panel,.utility-panel,.today-columns>*,.modules-board,.search-board,.data-tools,.kg-news,.today-panel,.today-card,.day-card,.week-card,.session){
+  border-radius:var(--radius)!important;border-color:var(--line)!important;box-shadow:var(--shadow)!important}
+html body :is(.today-metrics>*,.today-metric){background:var(--panel)!important;border:1px solid var(--line)!important;box-shadow:none!important;border-radius:14px!important}
+
+/* «Ваш учебный день» и экран выбора группы: ровный акцент без градиентов */
+html body .today-hero{background:var(--accent)!important;box-shadow:0 8px 24px rgba(37,99,235,.18)!important;border-radius:20px!important}
+html[data-theme="dark"] body .today-hero{background:#1d3a75!important}
+html body .chooser-view{background:var(--bg)!important}
+html body .chooser-hero{background:var(--accent)!important;box-shadow:0 10px 30px rgba(37,99,235,.2)!important;border-radius:22px!important}
+html[data-theme="dark"] body .chooser-hero{background:#1d3a75!important}
+
+/* Кнопки */
+html body button{border-radius:12px;border-color:var(--line);font-weight:600}
+html body :is(.primary,.settings-option.active,.day-switch-btn.active,.course-tabs button.active,.program-tabs button.active){
+  background:var(--accent)!important;color:#fff!important;border-color:transparent!important;box-shadow:none!important}
+html body button:focus-visible,html body a:focus-visible{outline:2px solid var(--accent)!important;outline-offset:2px}
+html body .small-btn{border-radius:8px}
+
+/* Тихие служебные строки */
+html body .source-stamp{background:transparent!important;border:0!important;box-shadow:none!important;color:var(--sub)!important;font-size:12px!important;padding:2px 4px 8px!important;font-weight:500}
+html body .developer-footer{color:var(--sub);font-weight:500}
+html body .developer-footer a{color:var(--accent-ink);text-decoration:none;font-weight:600}
+html body .report-btn{background:transparent!important;border:1px solid var(--line)!important;color:var(--sub)!important;min-height:36px!important;padding:6px 12px!important}
+
+/* Права: обычный студент не видит инструменты администратора и старосты */
+body:not(.kg-admin) .kg-admin-only{display:none!important}
+body:not(.kg-editor) .kg-editor-only{display:none!important}
+body:not(.kg-editor) #cloudPanel :is(#cloudStatus,#cloudSourceHint,.cloud-warning,#cloudRefresh,#cloudPublishLocal){display:none!important}
+#cloudPanel .kg-mail-login{font-size:13px}
+#cloudPanel .kg-tg-login{background:var(--accent-soft)!important;border:0!important;border-radius:14px!important}
+
+@media (prefers-reduced-motion:reduce){html body *{transition:none!important;animation:none!important}}
+html body .today-hero :is(.subgroup-switch,.today-subgroups,[class*="subgroup"]){background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.18)!important}
+html body #cloudPanel{border-left:0!important;padding-left:0!important;background:transparent!important;box-shadow:none!important}
+body:not(.kg-editor) #cloudPanel p:has(> #cloudRoles){display:none!important}
+body:not(.kg-tg) #cloudPanel #cloudAccount{display:none!important}
+html body #cloudPanel #cloudAccount{font-weight:600;color:var(--ink)}
