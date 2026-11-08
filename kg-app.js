@@ -500,7 +500,7 @@
       row('Группа', esc(g), 'group') +
       (groupCaption(g) ? row('Направление', esc(groupCaption(g))) : '') + '</div>' +
       '<div class="kg-lt">Подгруппа</div><div class="kg-lbox kg-pad">' + seg('sub', [['all', 'Обе'], ['1', '1-я'], ['2', '2-я']], typeof group !== 'undefined' ? group : 'all') + '</div>' +
-      '<div class="kg-lt">Оформление</div><div class="kg-lbox kg-pad">' + seg('theme', [['system', inTG ? 'Как в Telegram' : 'Авто'], ['light', 'Светлая'], ['dark', 'Тёмная']], theme) + '</div>' +
+      '<div class="kg-lt">Оформление</div><div class="kg-lbox kg-pad">' + seg('theme', [['system', 'Авто'], ['light', 'Светлая'], ['dark', 'Тёмная']], theme) + '</div>' +
       (botName() ? '<div class="kg-lt">Уведомления</div><div class="kg-lbox">' + row('Напоминания о парах', 'в боте', 'bot') + '</div>' : '') +
       '<div class="kg-lt">Аккаунт</div><div class="kg-lbox" id="kgAccBox">' +
       (u ? row('Telegram', esc(u.username ? '@' + u.username : u.name)) + '<button type="button" class="kg-lrow kg-danger" id="kgLogout"><span>Выйти</span></button>' : '<div class="kg-pad" id="kgTgSlot"></div>') + '</div>' +
