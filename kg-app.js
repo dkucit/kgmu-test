@@ -58,6 +58,11 @@
     document.documentElement.classList.add('kg-in-tg');
   }
 
+  /* ---------- вид: компактный (дизайн E) или расширенный (V8.8) ---------- */
+  var UI = inTG ? 'cx' : (function () { try { var v = localStorage.getItem('kg-ui'); if (v === 'cx' || v === 'ext') return v; } catch (e) {} return window.innerWidth < 760 ? 'cx' : 'ext'; })();
+  function setUI(v) { try { localStorage.setItem('kg-ui', v); } catch (e) {} location.reload(); }
+  if (UI === 'cx') document.documentElement.classList.add('kg-e');
+
   /* ---------- утилиты ---------- */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function today() { return kazanTodayKey(); }
@@ -65,6 +70,7 @@
   function dow(key) { return (parseISO(key).getDay() + 6) % 7; }
   function mins(t) { var p = String(t).split(':'); return (+p[0]) * 60 + (+p[1] || 0); }
   function plural(n, a, b, c) { var m10 = n % 10, m100 = n % 100; return n + ' ' + (m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c); }
+  function dur(m) { return m >= 60 ? Math.floor(m / 60) + ' ч' + (m % 60 ? ' ' + m % 60 + ' мин' : '') : m + ' мин'; }
   function niceDate(key) { var d = parseISO(key); return DOW[dow(key)] + ', ' + d.getDate() + ' ' + MON[d.getMonth()]; }
   function ddmm(key) { var d = parseISO(key); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0'); }
   function fullName(e) { return subjTitle(e.fullSubject || e.subject); }
@@ -100,8 +106,10 @@
     heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>',
     tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/>',
     x: '<path d="M18 6 6 18M6 6l12 12"/>', pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>', layers: '<path d="M12 3 3 8l9 5 9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', chev: '<path d="m9 18 6-6-6-6"/>'
   };
+  var SUN = '<svg class="kg-sun" viewBox="0 0 170 170" aria-hidden="true"><defs><radialGradient id="kgsg"><stop offset="0%" stop-color="#FFE3A3"/><stop offset="45%" stop-color="#FFB45E" stop-opacity=".9"/><stop offset="100%" stop-color="#FF8A5B" stop-opacity="0"/></radialGradient></defs><g stroke="rgba(255,226,170,.45)" stroke-width="3" stroke-linecap="round"><path d="M85 8v16M85 146v16M8 85h16M146 85h16M30 30l11 11M129 129l11 11M30 140l11-11M129 41l11-11"/></g><circle cx="85" cy="85" r="60" fill="url(#kgsg)"/><circle cx="85" cy="85" r="26" fill="#FFE7B0"/></svg>';
   function ic(n, cls) { return '<svg class="kg-ic ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[n] + '</svg>'; }
 
   /* ---------- состояние ---------- */
@@ -146,6 +154,9 @@
       '<div class="kg-scrim" id="kgScrim"></div>' +
       '<aside class="kg-drawer" id="kgDrawer" aria-label="Меню"></aside>';
     document.body.insertBefore(app, document.body.firstChild);
+    var bl = document.createElement('div'); bl.className = 'kg-blobs'; bl.setAttribute('aria-hidden', 'true'); bl.innerHTML = '<i></i><i></i><i></i><i></i>'; document.body.appendChild(bl);
+    var tb = document.createElement('nav'); tb.className = 'kg-tabbar'; tb.id = 'kgTabbar'; tb.setAttribute('aria-label', 'Разделы'); app.appendChild(tb);
+    tb.addEventListener('click', onTab);
     document.body.classList.add('kg-on', 'kg-mode-home');
 
     $('kgMenuBtn').onclick = openDrawer;
@@ -164,6 +175,27 @@
     }, { passive: true });
     window.addEventListener('popstate', function () { if (state.page) goHome(true); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (document.body.classList.contains('kg-drawer-open')) closeDrawer(); else if (state.page) back(); } });
+  }
+
+  /* ---------- нижнее меню ---------- */
+  function curTab() { if (state.page === 'modules') return 'modules'; if (state.page === 'settings') return 'profile'; if (state.page) return ''; return state.week ? 'week' : 'home'; }
+  function renderTabs() {
+    var tb = $('kgTabbar'); if (!tb) return;
+    var c = curTab();
+    function t(id, icon, label) { return '<button type="button" class="kg-tab' + (c === id ? ' on' : '') + '" data-tab="' + id + '"' + (c === id ? ' aria-current="page"' : '') + '>' + ic(icon) + '<span>' + label + '</span></button>'; }
+    tb.innerHTML = t('home', 'home', 'Главная') + t('week', 'week', 'Неделя') + '<button type="button" class="kg-fab" data-tab="today" aria-label="Сегодня">' + ic('clock') + '</button>' + t('modules', 'layers', 'Модули') + t('profile', 'user', 'Профиль');
+  }
+  function onTab(ev) {
+    var b = ev.target.closest('[data-tab]'); if (!b) return;
+    var id = b.dataset.tab;
+    if (id === 'home' || id === 'week' || id === 'today') {
+      if (id === 'today') { state.date = today(); state.open = null; }
+      state.week = id === 'week'; try { localStorage.setItem('kg-week-mode', state.week ? '1' : '0'); } catch (e) {}
+      if (state.page) goHome(); else render();
+      window.scrollTo({ top: 0 });
+    } else if (id === 'modules') navigate('modules');
+    else if (id === 'profile') navigate('settings');
+    renderTabs();
   }
 
   function shift(n) {
@@ -191,18 +223,18 @@
       var now = kazanClockMinutes();
       var cur = live.find(function (s) { return mins(s[0].start) <= now && now < mins(s[0].end); });
       var next = live.find(function (s) { return mins(s[0].start) > now; });
-      if (!live.length) { label = slots.length ? 'пары отменены' : 'выходной'; title = 'Сегодня пар нет'; sub = 'Можно отдохнуть'; }
+      if (!live.length) { label = slots.length ? 'пары отменены' : 'выходной'; title = 'Сегодня пар нет'; sub = 'Можно отдохнуть'; cls = 'is-free'; }
       else if (cur) {
         var e = cur[0], left = mins(e.end) - now;
         label = 'сейчас идёт'; icon = 'play'; cls = 'is-now';
         title = fullName(e); sub = 'До конца ' + plural(left, 'минута', 'минуты', 'минут') + (roomChip(e.shortLocation || e.location) ? ' · ' + roomChip(e.shortLocation || e.location) : '');
         prog = Math.round((now - mins(e.start)) / Math.max(1, mins(e.end) - mins(e.start)) * 100);
       } else if (next && now < mins(live[0][0].start)) {
-        label = 'сегодня'; icon = 'clock'; title = 'Первая пара в ' + next[0].start; sub = fullName(next[0]);
+        label = 'пары ещё не начались'; icon = 'clock'; cls = 'is-morning'; title = 'Первая пара в ' + next[0].start; sub = 'через ' + dur(mins(next[0].start) - now) + ' · ' + fullName(next[0]);
       } else if (next) {
-        label = 'перерыв'; icon = 'cup'; title = 'Следующая в ' + next[0].start; sub = fullName(next[0]);
+        label = 'перерыв'; icon = 'cup'; cls = 'is-break'; title = 'Следующая в ' + next[0].start; sub = 'через ' + dur(mins(next[0].start) - now) + ' · ' + fullName(next[0]);
       } else {
-        label = 'на сегодня всё'; icon = 'moon'; title = 'Пары закончились';
+        label = 'на сегодня всё'; icon = 'moon'; cls = 'is-done'; title = 'Пары закончились';
         var tm = addDays(t, 1); if (dow(tm) === 6) tm = addDays(tm, 1);
         var nx = lessonsFor(tm).filter(function (s) { return s.some(isLive); });
         sub = nx.length ? (tm === addDays(t, 1) ? 'Завтра' : 'В понедельник') + ' первая в ' + nx[0][0].start : 'Можно отдохнуть';
@@ -210,10 +242,10 @@
     } else {
       var diff = Math.round((parseISO(key) - parseISO(t)) / 864e5);
       label = diff === 1 ? 'завтра' : diff === -1 ? 'вчера' : DOWL[dow(key)];
-      if (!live.length) { title = 'Пар нет'; sub = slots.length ? 'Все занятия отменены' : 'Выходной'; }
+      if (!live.length) { title = 'Пар нет'; sub = slots.length ? 'Все занятия отменены' : 'Выходной'; cls = 'is-free'; }
       else { icon = 'cal'; title = plural(live.length, 'пара', 'пары', 'пар'); sub = live[0][0].start + ' – ' + live[live.length - 1][0].end; }
     }
-    var h = '<div class="kg-status ' + cls + '"><div class="kg-status-label">' + ic(icon) + esc(label) + '</div>' +
+    var h = '<div class="kg-status ' + cls + '">' + (UI === 'cx' ? '<i class="kg-glow"></i><i class="kg-sheen"></i>' + (cls === 'is-morning' ? SUN : '') : '') + '<div class="kg-status-label">' + ic(icon) + esc(label.charAt(0).toUpperCase() + label.slice(1)) + '</div>' +
       '<div class="kg-status-title">' + esc(title) + '</div><div class="kg-status-sub">' + esc(sub) + '</div>' +
       (prog >= 0 ? '<div class="kg-progress"><span style="width:' + prog + '%"></span></div>' : '') + '</div>';
     // ближайший модуль и свежие объявления
@@ -346,6 +378,7 @@
     $('kgModeBtn').innerHTML = ic(state.week ? 'cal' : 'week');
     $('kgModeBtn').setAttribute('aria-label', state.week ? 'Один день' : 'Вся неделя');
     $('kgStatus').innerHTML = statusCard();
+    renderTabs();
     var list = $('kgList');
     list.className = 'kg-list' + (state.week ? ' kg-week' : '');
     list.innerHTML = state.week ? weekHTML() : dayHTML();
@@ -438,6 +471,7 @@
     $('kgSubTitle').textContent = title;
     window.scrollTo(0, 0);
     tgPost('web_app_setup_back_button', { is_visible: true });
+    renderTabs();
   }
   function showOld(view, title, tools) {
     enterPage(view, title);
@@ -501,6 +535,7 @@
       (groupCaption(g) ? row('Направление', esc(groupCaption(g))) : '') + '</div>' +
       '<div class="kg-lt">Подгруппа</div><div class="kg-lbox kg-pad">' + seg('sub', [['all', 'Обе'], ['1', '1-я'], ['2', '2-я']], typeof group !== 'undefined' ? group : 'all') + '</div>' +
       '<div class="kg-lt">Оформление</div><div class="kg-lbox kg-pad">' + seg('theme', [['system', 'Авто'], ['light', 'Светлая'], ['dark', 'Тёмная']], theme) + '</div>' +
+      (inTG ? '' : '<div class="kg-lt">Вид сайта</div><div class="kg-lbox kg-pad">' + seg('ui', [['cx', 'Компактный'], ['ext', 'Расширенный']], 'cx') + '</div>') +
       (botName() ? '<div class="kg-lt">Уведомления</div><div class="kg-lbox">' + row('Напоминания о парах', 'в боте', 'bot') + '</div>' : '') +
       '<div class="kg-lt">Аккаунт</div><div class="kg-lbox" id="kgAccBox">' +
       (u ? row('Telegram', esc(u.username ? '@' + u.username : u.name)) + '<button type="button" class="kg-lrow kg-danger" id="kgLogout"><span>Выйти</span></button>' : '<div class="kg-pad" id="kgTgSlot"></div>') + '</div>' +
@@ -514,6 +549,7 @@
     $('kgPage').querySelectorAll('[data-seg]').forEach(function (box) {
       box.addEventListener('click', function (ev) {
         var b = ev.target.closest('button[data-v]'); if (!b) return;
+        if (box.dataset.seg === 'ui') { if (b.dataset.v === 'ext') setUI('ext'); return; }
         if (box.dataset.seg === 'sub') { try { setGroup(b.dataset.v); } catch (e) {} }
         else { var t = document.querySelector('[data-theme-choice="' + b.dataset.v + '"]'); if (t) t.click(); setTimeout(applyTGTheme, 30); }
         renderSettingsPage();
@@ -540,7 +576,19 @@
       if (g && g !== cur) { u.searchParams.set('studyGroup', cur); history.replaceState(history.state, '', u); }
     } catch (e) {}
   }
+  function bootExt() {
+    wrap('activateStudyGroup', rememberGroup);
+    var box = document.querySelector('.header-actions');
+    if (box && !$('kgToCx')) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.id = 'kgToCx'; b.className = 'header-icon-btn'; b.title = 'Компактный вид'; b.setAttribute('aria-label', 'Компактный вид');
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>';
+      b.onclick = function () { setUI('cx'); };
+      box.insertBefore(b, box.firstChild);
+    }
+  }
   function boot() {
+    if (UI === 'ext') { bootExt(); return; }
     mount();
     wrap('render', renderSoon);
     wrap('applyTheme', applyTGTheme);
