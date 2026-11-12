@@ -2115,6 +2115,13 @@ function exportICS(id){
  const uid=String(id).replace(/[^a-z0-9-]/gi,'')+'-'+selectedStudyGroup+'@kgmu-group-schedule';
  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
  const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//KGMU Student Schedule//RU','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+start,'DTEND;VALUE=DATE:'+end,'SUMMARY:'+icsSafe('Модуль: '+n.subject+' — '+n.title),'DESCRIPTION:'+icsSafe(desc),'END:VEVENT','END:VCALENDAR'];
+ /* В Telegram скачать файл нельзя (WebView показывает текст .ics и выгружает сайт) — открываем страницу-помощник во внешнем браузере */
+ if(document.documentElement.classList.contains('kg-in-tg')){
+  const ev={t:'Модуль: '+n.subject+' — '+n.title,s:start,e:end,d:desc,u:uid};
+  const url=new URL('ics.html',location.href.split('#')[0].split('?')[0]).href+'#'+encodeURIComponent(JSON.stringify(ev));
+  try{if(window.TelegramWebviewProxy)window.TelegramWebviewProxy.postEvent('web_app_open_link',JSON.stringify({url}));else if(window.parent!==window)window.parent.postMessage(JSON.stringify({eventType:'web_app_open_link',eventData:{url}}),'*');else window.open(url,'_blank');}catch(_){window.open(url,'_blank');}
+  toast('Открываю браузер, чтобы добавить в календарь');return;
+ }
  downloadText('modul_'+selectedStudyGroup+'_'+n.date+'.ics',lines.join('\r\n')+'\r\n','text/calendar;charset=utf-8');
  toast('Файл для календаря создан');
 }
@@ -2252,7 +2259,7 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 <script src="./cloud-sync.js"></script>
 <script src="./community-extras.js"></script>
 <script src="./kg-ui.js?v=89"></script>
-<script src="./kg-app.js?v=98"></script>
+<script src="./kg-app.js?v=100"></script>
 <script>setInterval(function(){try{document.body.classList.toggle("kg-admin",typeof newsAdmin==="function"&&!!newsAdmin())}catch(e){}},2000);</script>
 </body>
 </html>

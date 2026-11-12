@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>В календарь · Расписание КГМУ</title>
+<style>
+:root{--bg:#EEF2F8;--card:#fff;--ink:#1c2230;--mut:#6E7C9A;--acc:#8C2B33}
+@media (prefers-color-scheme:dark){:root{--bg:#0c0e14;--card:#171a23;--ink:#eef0f5;--mut:#9aa6c0;--acc:#b5404a}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;padding:16px}
+main{width:100%;max-width:420px;background:var(--card);border-radius:22px;padding:22px;box-shadow:0 10px 30px rgba(20,30,60,.08)}
+small{color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:12px}
+h1{font-size:19px;margin:6px 0 4px}
+p{margin:0 0 18px;color:var(--mut);white-space:pre-line}
+a.btn,button{display:block;width:100%;border:0;border-radius:14px;padding:14px;margin-top:10px;font:inherit;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+.pri{background:var(--acc);color:#fff}
+.sec{background:transparent;color:var(--acc);border:1.5px solid var(--acc)!important}
+.err{color:var(--acc)}
+</style>
+</head>
+<body>
+<main id="m"><small>Расписание КГМУ</small><h1>Загрузка…</h1></main>
+<script>
+(function(){
+  var m=document.getElementById('m'),ev=null;
+  try{ev=JSON.parse(decodeURIComponent(location.hash.slice(1)));}catch(e){}
+  if(!ev||!/^\d{8}$/.test(ev.s||'')||!/^\d{8}$/.test(ev.e||'')){m.innerHTML='<small>Расписание КГМУ</small><h1 class="err">Событие не найдено</h1><p>Откройте ссылку из приложения ещё раз.</p>';return;}
+  function esc(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function safe(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');}
+  var stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  var ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//KGMU Student Schedule//RU','CALSCALE:GREGORIAN','METHOD:PUBLISH','BEGIN:VEVENT',
+    'UID:'+String(ev.u||('kgmu-'+ev.s)).replace(/[^\w@.-]/g,''),'DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+ev.s,'DTEND;VALUE=DATE:'+ev.e,
+    'SUMMARY:'+safe(ev.t),'DESCRIPTION:'+safe(ev.d),'END:VEVENT','END:VCALENDAR'].join('\r\n')+'\r\n';
+  var d=ev.s.slice(6,8)+'.'+ev.s.slice(4,6)+'.'+ev.s.slice(0,4);
+  var desc=String(ev.d||'').replace(/\n+$/,'');
+  var g='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(ev.t||'')+'&dates='+ev.s+'/'+ev.e+'&details='+encodeURIComponent(desc);
+  var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  m.innerHTML='<small>Добавить в календарь · '+d+'</small><h1>'+esc(ev.t)+'</h1><p>'+esc(desc)+'</p>'+
+    '<button type="button" class="pri" id="ics">'+(ios?'Добавить в Календарь iPhone':'Скачать файл для календаря (.ics)')+'</button>'+
+    '<a class="btn sec" href="'+esc(g)+'" target="_blank" rel="noopener">Google Календарь</a>';
+  document.getElementById('ics').onclick=function(){
+    if(ios){location.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(ics);return;}
+    var u=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'})),a=document.createElement('a');
+    a.href=u;a.download='kgmu_'+ev.s+'.ics';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},4000);
+  };
+})();
+</script>
+</body>
+</html>
