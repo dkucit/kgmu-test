@@ -1,14 +1,14 @@
 /* KGMU · оболочка мини-приложения (главный экран, меню слева, подстраницы) */
 :root{
   --a-bg:#f2f3f7;--a-card:#ffffff;--a-card2:#f6f7f9;--a-line:rgba(15,23,42,.08);--a-text:#111318;--a-hint:#6b7080;
-  --a-acc:#4a5bd4;--a-acc-soft:rgba(74,91,212,.11);--a-red:#e5484d;--a-red-soft:rgba(229,72,77,.11);--a-green:#2f9e6a;
+  --a-acc:#8C2B33;--a-acc-soft:rgba(140,43,51,.11);--a-red:#e5484d;--a-red-soft:rgba(229,72,77,.11);--a-green:#2f9e6a;
   --a-amber:#d98a0b;--a-shadow:0 1px 2px rgba(15,23,42,.05);--a-r:16px;
 }
 html[data-theme="dark"]{
   --a-bg:#0c0c10;--a-card:rgba(255,255,255,.055);--a-card2:rgba(255,255,255,.085);--a-line:rgba(255,255,255,.085);--a-text:#f4f4f6;--a-hint:#8d8f9b;
   --a-acc:#8f9dff;--a-acc-soft:rgba(143,157,255,.16);--a-red:#ff6b6f;--a-red-soft:rgba(255,107,111,.14);--a-green:#5fd39b;--a-amber:#ffbf47;--a-shadow:none;
 }
-html.kg-tg-colors{--a-bg:var(--tg-bg);--a-acc:var(--tg-accent,#4a5bd4);--a-acc-soft:color-mix(in srgb,var(--a-acc) 15%,transparent)}
+html.kg-tg-colors{--a-bg:var(--tg-bg);--a-acc:var(--tg-accent,#8C2B33);--a-acc-soft:color-mix(in srgb,var(--a-acc) 15%,transparent)}
 
 html body.kg-on{background:var(--a-bg)!important;color:var(--a-text)}
 html[data-theme="dark"] body.kg-on{background:
