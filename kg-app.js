@@ -488,7 +488,7 @@
       case 'modules': return showOld('modules', 'Модули и зачёты');
       case 'search': return showOld('search', 'Поиск');
       case 'schedule': return showOld('schedule', 'По неделям');
-      case 'tools': return showOld('settings', 'Инструменты', true);
+      case 'tools': return showOld('settings', role() === 'admin' ? 'Инструменты админа' : 'Инструменты старосты', true);
       case 'settings': return showSettings();
       case 'group': if (UI === 'cx') return showGroupPage(); goHome(); try { showGroupChooser(); } catch (e) {} return;
       case 'bot': window.open('https://t.me/' + botName() + '?start=g-' + encodeURIComponent(selectedStudyGroup), '_blank'); return;
@@ -504,7 +504,7 @@
     news: function () { showNews(); },
     modules: function () { showOld('modules', 'Модули и зачёты'); },
     search: function () { showOld('search', 'Поиск'); },
-    tools: function () { showOld('settings', 'Инструменты', true); },
+    tools: function () { navigate('tools'); },
     group: function () { showGroupPage(); }
   };
   function enterPage(name, title) {
@@ -852,7 +852,7 @@
       (botName() ? '<div class="kg-lbox">' + row('Напоминания о парах', 'в боте', 'bot') + '</div>' : '') +
       '<div class="kg-lt">Аккаунт</div><div class="kg-lbox" id="kgAccBox">' +
       (u ? row('Telegram', esc(u.username ? '@' + u.username : u.name)) + '<button type="button" class="kg-lrow kg-danger" id="kgLogout"><span>Выйти</span></button>' : '<div class="kg-pad" id="kgTgSlot"></div>') + '</div>' +
-      (r === 'admin' ? '<div class="kg-lbox">' + row('Инструменты админа', '', 'tools') + '</div>' : '') +
+      (r ? '<div class="kg-lbox">' + row(r === 'admin' ? 'Инструменты админа' : 'Инструменты старосты', '', 'tools') + '</div>' : '') +
       '<div class="kg-lbox">' + row('Сообщить о проблеме', '', 'report') + '</div>' +
       '<div class="kg-ver">Версия 9.0 · Разработчики <a href="https://t.me/brainfucker01" target="_blank" rel="noopener">@brainfucker01</a> · <a href="https://t.me/dkkk111111" target="_blank" rel="noopener">@dkkk111111</a></div>';
     restoreMoved();
