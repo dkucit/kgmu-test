@@ -36,11 +36,12 @@ a.btn,button{display:block;width:100%;border:0;border-radius:14px;padding:14px;m
   var desc=String(ev.d||'').replace(/\n+$/,'');
   var g='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(ev.t||'')+'&dates='+ev.s+'/'+ev.e+'&details='+encodeURIComponent(desc);
   var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  /* iPhone открывает событие в Календаре только из файла с сервера (text/calendar) — его отдаёт Edge Function ics */
+  var fn='https://aqnpusacmyovveljyqdd.supabase.co/functions/v1/ics?e='+encodeURIComponent(JSON.stringify({t:ev.t,s:ev.s,e:ev.e,d:desc,u:ev.u}));
   m.innerHTML='<small>Добавить в календарь · '+d+'</small><h1>'+esc(ev.t)+'</h1><p>'+esc(desc)+'</p>'+
-    '<button type="button" class="pri" id="ics">'+(ios?'Добавить в Календарь iPhone':'Скачать файл для календаря (.ics)')+'</button>'+
+    (ios?'<a class="btn pri" href="'+esc(fn)+'">Добавить в Календарь iPhone</a>':'<button type="button" class="pri" id="ics">Скачать файл для календаря (.ics)</button>')+
     '<a class="btn sec" href="'+esc(g)+'" target="_blank" rel="noopener">Google Календарь</a>';
-  document.getElementById('ics').onclick=function(){
-    if(ios){location.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(ics);return;}
+  if(!ios)document.getElementById('ics').onclick=function(){
     var u=URL.createObjectURL(new Blob([ics],{type:'text/calendar;charset=utf-8'})),a=document.createElement('a');
     a.href=u;a.download='kgmu_'+ev.s+'.ics';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},4000);
   };
