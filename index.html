@@ -1721,7 +1721,7 @@ function renderDayDetail(){
  const sorted=daynotes.sort((a,b)=>(a.type==='module'?-1:1)-(b.type==='module'?-1:1)||a.subject.localeCompare(b.subject));
  let cards='';for(const n of sorted){
   const isModule=n.type==='module';
-  cards+='<div class="entry '+n.type+'"><div class="entry-top"><div><div class="entry-title">'+(isModule?'🚩 МОДУЛЬ / ЗАЧЁТ: ':'📘 ДЗ: ')+esc(n.title)+'</div><div class="entry-sub">'+esc(n.subject)+(n.subgroup!=='all'?' · '+n.subgroup+'-я подгруппа':' · вся группа')+(typeof cloudShowRecordSource==='function'?cloudShowRecordSource(n):'')+'</div></div>'+(typeof cloudCanEditNote!=='function'||cloudCanEditNote(n)?'<div class="entry-controls"><button class="small-btn" type="button" data-edit="'+esc(n.id)+'">Изменить</button><button class="small-btn" type="button" data-delete="'+esc(n.id)+'">×</button></div>':'')+'</div>';
+  cards+='<div class="entry '+n.type+'"><div class="entry-top"><div><div class="entry-title">'+(isModule?'🚩 МОДУЛЬ / ЗАЧЁТ: ':'📘 ДЗ: ')+esc(n.title)+'</div><div class="entry-sub">'+esc(n.subject)+(n.subgroup!=='all'?' · '+n.subgroup+'-я подгруппа':' · вся группа')+(typeof cloudShowRecordSource==='function'?cloudShowRecordSource(n):'')+'</div></div>'+noteControls(n)+'</div>';
   if(n.details)cards+='<div class="entry-desc">'+esc(n.details)+'</div>';
   if(isModule&&n.resources)cards+=renderResources(n.resources);
   if(isModule)cards+='<button type="button" class="ics-button" data-ics="'+esc(n.id)+'">＋ В календарь телефона (.ics)</button>';
@@ -1729,6 +1729,13 @@ function renderDayDetail(){
  }
  $('detailEntries').innerHTML=cards||'<div class="inline-empty">Пока нет записей о модулях или домашних заданиях. Добавьте первую запись для этой даты.</div>';
  renderDayChanges();
+}
+/* «Изменить» — правка напрямую или заявка старосте; «×» — только староста/админ (или своя неподтверждённая) */
+function noteControls(n){
+ const mode=typeof cloudNoteEditMode==='function'?cloudNoteEditMode(n):'direct';
+ const del=typeof cloudCanDeleteNote!=='function'||cloudCanDeleteNote(n);
+ if(!mode&&!del)return '';
+ return '<div class="entry-controls">'+(mode?'<button class="small-btn" type="button" data-edit="'+esc(n.id)+'">'+(mode==='request'?'Предложить правку':'Изменить')+'</button>':'')+(del?'<button class="small-btn" type="button" data-delete="'+esc(n.id)+'" aria-label="Удалить">×</button>':'')+'</div>';
 }
 function editorSubjects(){
  const subjs=new Set(dayLessons(selectedDate).flat().map(e=>subjTitle(e.subject)));
@@ -1752,8 +1759,11 @@ function openEditor(type='homework',subject=null,id=null){
  $('editDetails').value=record?record.details:'';
  $('editResources').value=record?record.resources||'':'';
  toggleResourcesField();
- $('editorHeading').textContent=record?'Редактировать запись':'Новая запись · '+(type==='module'?'модуль / зачёт':'домашнее задание');
- if(record?._remote && typeof cloudCanEditNote==='function' && !cloudCanEditNote(record)){toast('Можно редактировать только свою общую запись');return;}
+ $('editorHeading').textContent=record?(record._remote&&typeof cloudNoteEditMode==='function'&&cloudNoteEditMode(record)==='request'?'Предложить правку':'Редактировать запись'):'Новая запись · '+(type==='module'?'модуль / зачёт':'домашнее задание');
+ if(record?._remote && typeof cloudNoteEditMode==='function' && !cloudNoteEditMode(record)){toast('Нет прав для изменения этой записи');return;}
+ /* если уже есть своя заявка на правку — открываем её значения */
+ const myEdit=record?._remote&&typeof cloudMyEdit==='function'?cloudMyEdit(record):null;
+ if(myEdit){$('editType').value=myEdit.type;$('editGroup').value=myEdit.subgroup;$('editTitle').value=myEdit.title;$('editDetails').value=myEdit.details;$('editResources').value=myEdit.resources||'';toggleResourcesField();}
  if(typeof cloudPrepareNoteEditor==='function')cloudPrepareNoteEditor(record);
  $('recordEditor').hidden=false;
  $('recordEditor').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -2256,10 +2266,10 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   });
 }
 </script>
-<script src="./cloud-sync.js"></script>
+<script src="./cloud-sync.js?v=101"></script>
 <script src="./community-extras.js"></script>
 <script src="./kg-ui.js?v=89"></script>
-<script src="./kg-app.js?v=100"></script>
+<script src="./kg-app.js?v=101"></script>
 <script>setInterval(function(){try{document.body.classList.toggle("kg-admin",typeof newsAdmin==="function"&&!!newsAdmin())}catch(e){}},2000);</script>
 </body>
 </html>
