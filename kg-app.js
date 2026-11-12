@@ -42,8 +42,8 @@
       root.classList.remove('kg-tg-colors');
       root.style.removeProperty('--tg-bg'); root.style.removeProperty('--tg-accent');
       var dark = root.dataset.theme === 'dark';
-      tgPost('web_app_set_header_color', { color: dark ? '#0c0c10' : '#f2f3f7' });
-      tgPost('web_app_set_background_color', { color: dark ? '#0c0c10' : '#f2f3f7' });
+      tgPost('web_app_set_header_color', { color: dark ? '#0c0e14' : '#EEF2F8' });
+      tgPost('web_app_set_background_color', { color: dark ? '#0c0e14' : '#EEF2F8' });
     }
   }
   if (inTG) {
@@ -615,7 +615,7 @@
 
   /* ---------- компактный вид: экраны по референсу ---------- */
   var DOWS = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-  var CXK = { lec: ['#8EA6FF', '#3D63F0'], pr: ['#FFC86B', '#FF8A3D'], cyc: ['#B79CFF', '#7C5CF0'] };
+  var CXK = { lec: ['#A7B3CB', '#5C6B8A'], pr: ['#D98A90', '#8C2B33'], cyc: ['#DCC59A', '#9A7A3E'] };
   var CXI = { lec: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 21l4-5 4 5"/>', pr: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 14h9"/>', cyc: '<path d="M12 3 3 8l9 5 9-5z"/><path d="m3 13 9 5 9-5"/>' };
   var FLAG = { cancel: 'Отменено', 'moved-away': 'Перенесено', 'moved-in': 'Перенесено сюда', move: 'Новое время', change: 'Изменено' };
   function kindOf(e) { return e.lessonType === 'cycle' ? 'cyc' : e.lecture ? 'lec' : 'pr'; }
@@ -672,10 +672,10 @@
     var list = [];
     try { list = notes.filter(function (n) { return (n.type === 'module' || n.type === 'homework') && n.date >= t && n.date <= addDays(t, 7) && noteRelevant(n); }).sort(function (a, b) { return a.date.localeCompare(b.date); }).slice(0, 3); } catch (e) {}
     var h = '', nw = newsList();
-    if (nw.length && nw[0].id !== seenNews()) h += '<button type="button" class="cx-row gl" data-cx="news">' + gIco('news', '#FFC86B', '#FF8A3D') + '<div><b>' + esc(nw[0].title) + '</b><span>Новое объявление</span></div><div class="tm">' + ic('chev') + '</div></button>';
+    if (nw.length && nw[0].id !== seenNews()) h += '<button type="button" class="cx-row gl" data-cx="news">' + gIco('news', '#DCC59A', '#9A7A3E') + '<div><b>' + esc(nw[0].title) + '</b><span>Новое объявление</span></div><div class="tm">' + ic('chev') + '</div></button>';
     list.forEach(function (n) {
       var d = Math.round((parseISO(n.date) - parseISO(t)) / 864e5), mod = n.type === 'module';
-      h += '<button type="button" class="cx-row gl" data-cx="' + (mod ? 'modules' : 'calendar') + '">' + (mod ? gIco('layers', '#B79CFF', '#6A4BE8') : gIco('flag', '#8EA6FF', '#3D63F0')) +
+      h += '<button type="button" class="cx-row gl" data-cx="' + (mod ? 'modules' : 'calendar') + '">' + (mod ? gIco('layers', '#D98A90', '#8C2B33') : gIco('flag', '#A7B3CB', '#5C6B8A')) +
         '<div><b>' + (mod ? 'Модуль' : 'ДЗ') + ' · ' + esc(n.subject) + '</b><span>' + esc(n.title || '') + '</span></div><div class="tm">' + (d === 0 ? 'сегодня' : d === 1 ? 'завтра' : ddmm(n.date)) + (d <= 1 ? '<small>скоро</small>' : '') + '</div></button>';
     });
     /* ссылка в заголовке ведёт туда, что реально есть в блоке */
@@ -715,11 +715,11 @@
       var bt = null;
       for (var i = 1; i < sl.length; i++) { if (mins(sl[i - 1][0].end) > now && mins(sl[i][0].start) - mins(sl[i - 1][0].end) >= 10) { bt = [sl[i - 1][0].end, sl[i][0].start]; break; } }
       var last = sl[sl.length - 1][0].end;
-      var tile1 = bt ? '<div class="cx-tile gl"><div class="cx-tl">' + gIco('cup', '#FFD08A', '#FF8A3D', 1) + 'Перерыв</div><div class="cx-tv">' + dur(mins(bt[1]) - mins(bt[0])) + '</div><div class="cx-ts">' + esc(bt[0]) + ' – ' + esc(bt[1]) + '</div></div>'
-        : '<div class="cx-tile gl"><div class="cx-tl">' + gIco('flag', '#B79CFF', '#7C5CF0', 1) + 'Конец пар</div><div class="cx-tv">' + esc(last) + '</div><div class="cx-ts">через ' + dur(Math.max(0, mins(last) - now)) + '</div></div>';
+      var tile1 = bt ? '<div class="cx-tile gl"><div class="cx-tl">' + gIco('cup', '#DCC59A', '#9A7A3E', 1) + 'Перерыв</div><div class="cx-tv">' + dur(mins(bt[1]) - mins(bt[0])) + '</div><div class="cx-ts">' + esc(bt[0]) + ' – ' + esc(bt[1]) + '</div></div>'
+        : '<div class="cx-tile gl"><div class="cx-tl">' + gIco('flag', '#D98A90', '#8C2B33', 1) + 'Конец пар</div><div class="cx-tv">' + esc(last) + '</div><div class="cx-ts">через ' + dur(Math.max(0, mins(last) - now)) + '</div></div>';
       var done = sl.filter(function (s) { return mins(s[0].end) <= now; }).length;
-      var bars = sl.map(function (s) { return mins(s[0].end) <= now ? '<i class="ok"></i>' : (now >= mins(s[0].start) ? '<i style="background:linear-gradient(90deg,#5560F5 ' + Math.round((now - mins(s[0].start)) / Math.max(1, mins(s[0].end) - mins(s[0].start)) * 100) + '%,var(--e-sep) 0)"></i>' : '<i></i>'); }).join('');
-      bento = '<div class="cx-bento">' + tile1 + '<div class="cx-tile gl"><div class="cx-tl">' + gIco('play', '#7FE3B6', '#22C17A', 1) + 'День</div><div class="cx-tv">' + done + ' из ' + sl.length + '</div><div class="cx-bars" aria-hidden="true">' + bars + '</div></div></div>';
+      var bars = sl.map(function (s) { return mins(s[0].end) <= now ? '<i class="ok"></i>' : (now >= mins(s[0].start) ? '<i style="background:linear-gradient(90deg,#8C2B33 ' + Math.round((now - mins(s[0].start)) / Math.max(1, mins(s[0].end) - mins(s[0].start)) * 100) + '%,var(--e-sep) 0)"></i>' : '<i></i>'); }).join('');
+      bento = '<div class="cx-bento">' + tile1 + '<div class="cx-tile gl"><div class="cx-tl">' + gIco('play', '#A7B3CB', '#5C6B8A', 1) + 'День</div><div class="cx-tv">' + done + ' из ' + sl.length + '</div><div class="cx-bars" aria-hidden="true">' + bars + '</div></div></div>';
       if (rest.length) list = '<div class="cx-sh"><h2>Дальше сегодня</h2><button type="button" data-cx="day" data-d="' + t + '">Весь день ›</button></div><div class="cx-rows">' + rest.map(function (s) { return cxRow(s, t); }).join('') + '</div>';
     }
     return cxHead() + hero + bento + cxTasks(t) + list;
