@@ -329,3 +329,10 @@ html.kg-e body.kg-on .search-control input{border:0!important;background:transpa
 #kgApp .cx-gs .kg-ic{width:18px;height:18px;color:var(--a-hint)}
 #kgApp .cx-gs.on{background:var(--e-hero);color:#fff;border-color:transparent}
 #kgApp .cx-gs.on mark,#kgApp .cx-gs.on span,#kgApp .cx-gs.on .kg-ic{color:#fff}
+
+/* правки по проверке компактного вида */
+html.kg-e body.kg-mode-old .utility-back{display:none!important}
+#kgApp .cx-dt .cx-today{display:inline-flex;align-items:center;gap:2px;margin-top:6px;padding:3px 10px 3px 6px}
+#kgApp .cx-dt .cx-today .kg-ic{width:14px;height:14px}
+#kgApp .cx-hero > .cx-route[data-cx="group"]{position:relative;display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:11px 16px;border-radius:16px;background:#fff;color:#3F35C8;font-size:14px;font-weight:700;box-shadow:0 8px 20px rgba(20,16,80,.25)}
+#kgApp .cx-hero > .cx-route .kg-ic{width:18px;height:18px}
