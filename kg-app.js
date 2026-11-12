@@ -23,6 +23,8 @@
       else if (window.parent !== window) window.parent.postMessage(JSON.stringify({ eventType: type, eventData: data || {} }), '*');
     } catch (e) {}
   }
+  var tgSubs = [];
+  function tgOn(f) { tgSubs.push(f); }
   function lum(hex) {
     var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 1;
     var n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
@@ -48,12 +50,23 @@
   }
   if (inTG) {
     window.Telegram = window.Telegram || {};
-    if (!window.Telegram.WebView) {
-      window.Telegram.WebView = { receiveEvent: function (type, data) { if (type === 'theme_changed' && data && data.theme_params) { tp = data.theme_params; sessionStorage.setItem('kg-tg-theme', JSON.stringify(tp)); applyTGTheme(); } } };
-    }
+    /* События от Telegram: Android вызывает Telegram.WebView.receiveEvent, iOS — TelegramGameProxy.receiveEvent,
+       веб-версия шлёт postMessage. Принимаем все три и раздаём подписчикам (tgOn). */
+    var prevRecv0 = window.Telegram.WebView && window.Telegram.WebView.receiveEvent;
+    var recv = function (type, data) {
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) {} }
+      tgSubs.forEach(function (f) { try { f(type, data); } catch (e) {} });
+      if (prevRecv0 && prevRecv0 !== recv) { try { prevRecv0(type, data); } catch (e) {} }
+    };
+    window.Telegram.WebView = window.Telegram.WebView || {};
+    window.Telegram.WebView.receiveEvent = recv;
+    window.TelegramGameProxy = window.TelegramGameProxy || {};
+    window.TelegramGameProxy.receiveEvent = recv;
+    window.TelegramGameProxy_receiveEvent = recv;
     window.addEventListener('message', function (ev) {
-      try { var d = JSON.parse(ev.data); if (d.eventType === 'theme_changed' && d.eventData && d.eventData.theme_params) { tp = d.eventData.theme_params; applyTGTheme(); } } catch (e) {}
+      try { var d = JSON.parse(ev.data); if (d && d.eventType) recv(d.eventType, d.eventData); } catch (e) {}
     });
+    tgOn(function (type, data) { if (type === 'theme_changed' && data && data.theme_params) { tp = data.theme_params; try { sessionStorage.setItem('kg-tg-theme', JSON.stringify(tp)); } catch (e) {} applyTGTheme(); } });
     tgPost('web_app_ready'); tgPost('web_app_expand');
     document.documentElement.classList.add('kg-in-tg');
   }
@@ -554,9 +567,12 @@
     else goHome(true);
   }
   if (inTG) {
-    var prevRecv = window.Telegram.WebView && window.Telegram.WebView.receiveEvent;
-    if (window.Telegram.WebView) window.Telegram.WebView.receiveEvent = function (type, data) { if (type === 'back_button_pressed') back(); if (prevRecv) prevRecv(type, data); };
-    window.addEventListener('message', function (ev) { try { var d = JSON.parse(ev.data); if (d.eventType === 'back_button_pressed') back(); } catch (e) {} });
+    var lastBack = 0;
+    tgOn(function (type) {
+      if (type !== 'back_button_pressed') return;
+      var now = Date.now(); if (now - lastBack < 250) return; lastBack = now; /* одно нажатие могло прийти двумя путями */
+      if (state.page) back(); else tgPost('web_app_setup_back_button', { is_visible: false });
+    });
   }
 
   function showNews() {
