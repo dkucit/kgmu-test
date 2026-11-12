@@ -807,8 +807,46 @@
     var g = curGroup(), keys = Object.keys(progs());
     gp = { prog: g ? studyProgram(g) : keys[0], course: g ? studyCourse(g) : null, flow: g ? studyStream(g) : null, first: !!first };
     document.body.classList.toggle('kg-cx-first', !!first);
-    showPage('group', 'Выбор группы', '');
+    showPage('group', 'Выбор группы',
+      (first ? '<div class="cx-gp-hero"><span class="cx-gp-logo"><img alt="" src="./img/kgmu-logo.webp"></span><div><small>Казанский ГМУ</small><b>Расписание занятий</b><span>Выберите свою группу, выбор запомнится на устройстве</span></div></div>' : '') +
+      '<label class="cx-gq gl">' + ic('search') + '<input id="cxGpQ" type="search" inputmode="numeric" enterkeyhint="go" autocomplete="off" maxlength="12" placeholder="Номер группы, например 1307" aria-label="Номер группы" aria-controls="cxGpSug"></label>' +
+      '<div id="cxGpSug" class="cx-gsug" role="listbox" aria-label="Подходящие группы" hidden></div><div id="cxGpBody"></div>');
+    var q = $('cxGpQ');
+    q.addEventListener('input', renderGroupSuggest);
+    q.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var m = groupMatches(q.value);
+      if (m.length) pickGroup(m[0]);
+    });
     renderGroupPage();
+  }
+  function allGroups() {
+    try { if (typeof GROUP_IDS !== 'undefined') return GROUP_IDS.slice(); } catch (e) {}
+    var out = [], P = progs();
+    Object.keys(P).forEach(function (p) { var c = P[p].courses || {}; Object.keys(c).forEach(function (k) { Object.keys(c[k]).forEach(function (f) { out = out.concat(c[k][f] || []); }); }); });
+    return out;
+  }
+  /* сначала группы, которые начинаются с набранного, потом те, где оно встречается внутри */
+  function groupMatches(raw) {
+    var q = String(raw || '').replace(/\s+/g, '').toLowerCase(); if (!q) return [];
+    var all = allGroups(), starts = [], inside = [];
+    all.forEach(function (id) { var s = String(id).toLowerCase(); if (s.indexOf(q) === 0) starts.push(id); else if (s.indexOf(q) > 0) inside.push(id); });
+    var byNum = function (a, b) { return String(a).localeCompare(String(b), 'ru', { numeric: true }); };
+    return starts.sort(byNum).concat(inside.sort(byNum));
+  }
+  function renderGroupSuggest() {
+    var box = $('cxGpSug'), body = $('cxGpBody'), q = $('cxGpQ'); if (!box || !q) return;
+    var v = q.value.trim();
+    box.hidden = !v; body.hidden = !!v;
+    if (!v) { box.innerHTML = ''; return; }
+    var m = groupMatches(v), cur = curGroup(), shown = m.slice(0, 12);
+    box.innerHTML = shown.length ? '<div class="cx-lab">' + (m.length === 1 ? 'Найдена 1 группа' : 'Найдено: ' + plural(m.length, 'группа', 'группы', 'групп')) + (m.length > shown.length ? ', показаны первые ' + shown.length : '') + '</div>' +
+      shown.map(function (id) {
+        var s = String(id), i = s.toLowerCase().indexOf(v.replace(/\s+/g, '').toLowerCase()), L = v.replace(/\s+/g, '').length;
+        var num = i >= 0 ? esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + L)) + '</mark>' + esc(s.slice(i + L)) : esc(s);
+        return '<button type="button" class="cx-gs gl' + (id === cur ? ' on' : '') + '" role="option" data-gp="pick" data-v="' + esc(id) + '"><b>' + num + '</b><span>' + esc(groupCaption(id) || '') + (id === cur ? ' · текущая' : '') + '</span>' + ic('chev') + '</button>';
+      }).join('') : '<div class="cx-empty gl"><b>Нет такой группы</b>Проверьте номер или выберите по направлению и курсу</div>';
   }
   function renderGroupPage() {
     var P = progs(), cfg = P[gp.prog] || P[Object.keys(P)[0]]; if (!cfg) return;
@@ -817,9 +855,7 @@
     var flows = Object.keys(courses[gp.course] || {}); if (flows.indexOf(gp.flow) < 0) gp.flow = flows[0];
     var ids = (courses[gp.course] || {})[gp.flow] || [], cur = curGroup();
     function pick(kind, v, label, on, small) { return '<button type="button" class="cx-pick' + (on ? ' on' : '') + '" data-gp="' + kind + '" data-v="' + esc(v) + '" aria-pressed="' + on + '">' + label + (small ? '<small>' + small + '</small>' : '') + '</button>'; }
-    var h = '';
-    if (gp.first) h += '<div class="cx-gp-hero"><span class="cx-gp-logo"><img alt="" src="./img/kgmu-logo.webp"></span><div><small>Казанский ГМУ</small><b>Расписание занятий</b><span>Выберите свою группу, выбор запомнится на устройстве</span></div></div>';
-    h += '<div class="cx-lab">Направление</div><div class="cx-picks">' + Object.keys(P).map(function (k) { return pick('prog', k, esc(P[k].label), k === gp.prog); }).join('') + '</div>';
+    var h = '<div class="cx-lab">Или выберите по направлению</div><div class="cx-picks">' + Object.keys(P).map(function (k) { return pick('prog', k, esc(P[k].label), k === gp.prog); }).join('') + '</div>';
     h += '<div class="cx-lab">Курс</div><div class="cx-picks cx-picks-c">' + ck.map(function (c) {
       var n = 0; Object.keys(courses[c]).forEach(function (f) { n += (courses[c][f] || []).length; });
       return pick('course', c, c + ' курс', c === gp.course, plural(n, 'группа', 'группы', 'групп'));
@@ -832,7 +868,7 @@
       var dev = false; try { dev = isDevGroup(id); } catch (e) {}
       return '<button type="button" class="cx-gt gl' + (id === cur ? ' on' : '') + '" data-gp="pick" data-v="' + esc(id) + '"' + (id === cur ? ' aria-current="true"' : '') + '><b>' + esc(id) + '</b><small>' + (id === cur ? 'текущая' : dev ? 'в разработке' : 'открыть') + '</small></button>';
     }).join('') : '<div class="cx-empty gl">Групп нет</div>') + '</div>';
-    $('kgPage').innerHTML = h;
+    if ($('cxGpBody')) $('cxGpBody').innerHTML = h;
   }
   function pickGroup(id) {
     var first = gp && gp.first;
