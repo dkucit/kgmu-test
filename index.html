@@ -1004,7 +1004,7 @@ button:where(.header-icon-btn,.day-switch-btn,.module-open,.change-group-btn,.sh
 <script src="./schedule-data.js"></script>
 <link rel="stylesheet" href="./kg-theme.css?v=89">
 <link rel="stylesheet" href="./kg-app.css?v=89">
-<link rel="stylesheet" href="./kg-e.css?v=2">
+<link rel="stylesheet" href="./kg-e.css?v=3">
 <script>/* группа, выбранная вручную, важнее группы из ссылки бота */try{var u=new URL(location.href),g=u.searchParams.get("studyGroup"),o=JSON.parse(localStorage.getItem("kg-group-override")||"null");window.KG_URL_GROUP=g;if(g&&o&&o.from===g&&o.to&&o.to!==g){u.searchParams.set("studyGroup",o.to);history.replaceState(null,"",u);}else if(g&&o&&o.from!==g){localStorage.removeItem("kg-group-override");}}catch(e){}</script>
 <style>.data-tools{display:none}body.kg-admin .data-tools{display:block}</style>
 </head>
@@ -2252,7 +2252,7 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 <script src="./cloud-sync.js"></script>
 <script src="./community-extras.js"></script>
 <script src="./kg-ui.js?v=89"></script>
-<script src="./kg-app.js?v=93"></script>
+<script src="./kg-app.js?v=94"></script>
 <script>setInterval(function(){try{document.body.classList.toggle("kg-admin",typeof newsAdmin==="function"&&!!newsAdmin())}catch(e){}},2000);</script>
 </body>
 </html>

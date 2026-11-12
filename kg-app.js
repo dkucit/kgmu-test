@@ -411,6 +411,12 @@
     if (go) { ev.preventDefault(); navigate(go.dataset.go); }
   });
   function openEditorFor(type, subject, key) {
+    if (UI === 'cx') {
+      showCal(key);
+      try { openEditor(type, subject); } catch (e) { console.warn(e); }
+      setTimeout(function () { var r = $('recordEditor'); if (r) r.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
+      return;
+    }
     showOld('calendar', 'Календарь и ДЗ');
     try { selectDate(key, false); openEditor(type, subject); } catch (e) { console.warn(e); }
     setTimeout(function () { var r = $('recordEditor'); if (r) r.scrollIntoView({ block: 'start' }); }, 120);
@@ -458,13 +464,13 @@
     switch (go) {
       case 'close': return;
       case 'news': return showNews();
-      case 'calendar': return showOld('calendar', 'Календарь и ДЗ');
+      case 'calendar': return UI === 'cx' ? showCal() : showOld('calendar', 'Календарь и ДЗ');
       case 'modules': return showOld('modules', 'Модули и зачёты');
       case 'search': return showOld('search', 'Поиск');
       case 'schedule': return showOld('schedule', 'По неделям');
       case 'tools': return showOld('settings', 'Инструменты', true);
       case 'settings': return showSettings();
-      case 'group': goHome(); try { showGroupChooser(); } catch (e) {} return;
+      case 'group': if (UI === 'cx') return showGroupPage(); goHome(); try { showGroupChooser(); } catch (e) {} return;
       case 'bot': window.open('https://t.me/' + botName() + '?start=g-' + encodeURIComponent(selectedStudyGroup), '_blank'); return;
       case 'report': try { reportProblem(); } catch (e) {} return;
     }
@@ -480,6 +486,7 @@
     renderTabs();
   }
   function showOld(view, title, tools) {
+    restoreMoved();
     enterPage(view, title);
     document.body.classList.remove('kg-mode-home', 'kg-mode-page');
     document.body.classList.add('kg-mode-old');
@@ -488,6 +495,7 @@
     window.scrollTo(0, 0);
   }
   function showPage(name, title, html) {
+    restoreMoved();
     enterPage(name, title);
     document.body.classList.remove('kg-mode-home', 'kg-mode-old', 'kg-tools');
     document.body.classList.add('kg-mode-page');
@@ -766,7 +774,7 @@
     var u = tgUser(), r = role(), g = selectedStudyGroup, theme = (typeof userPreferences !== 'undefined' && userPreferences.theme) || 'system';
     var name = u ? (u.name || (u.username ? '@' + u.username : 'Студент')) : 'Гость';
     var h = '<div class="cx-prof gl"><div class="kg-ava">' + esc((name.replace('@', '')[0] || '?').toUpperCase()) + '</div><div class="kg-prof-t"><small>' + esc(r ? ROLE[r] : 'Студент') + '</small><b>' + esc(name) + '</b><span>Группа ' + esc(g) + (groupCaption(g) ? ' · ' + esc(groupCaption(g)) : '') + '</span></div></div>' +
-      '<div class="kg-lbox">' + row('Сменить группу', esc(g), 'group') + row('Календарь и ДЗ', '', 'calendar') + row('Таблица по неделям', '', 'schedule') + '</div>' +
+      '<div class="kg-lbox">' + row('Сменить группу', esc(g), 'group') + row('Календарь и ДЗ', '', 'calendar') + '</div>' +
       '<div class="kg-lt">Настройки</div><div class="kg-lbox kg-pad"><div class="cx-lab">Подгруппа</div>' + seg('sub', [['all', 'Обе'], ['1', '1-я'], ['2', '2-я']], typeof group !== 'undefined' ? group : 'all') +
       '<div class="cx-lab">Тема</div>' + seg('theme', [['system', 'Авто'], ['light', 'Светлая'], ['dark', 'Тёмная']], theme) +
       (inTG ? '' : '<div class="cx-lab">Вид сайта</div>' + seg('ui', [['cx', 'Компактный'], ['ext', 'Расширенный']], 'cx')) + '</div>' +
@@ -789,6 +797,127 @@
         renderProfile();
       });
     });
+  }
+
+  /* ---------- компактный вид: выбор группы ---------- */
+  var gp = null;
+  function progs() { return typeof PROGRAM_CONFIG !== 'undefined' ? PROGRAM_CONFIG : {}; }
+  function curGroup() { return typeof selectedStudyGroup !== 'undefined' && selectedStudyGroup ? selectedStudyGroup : ''; }
+  function showGroupPage(first) {
+    var g = curGroup(), keys = Object.keys(progs());
+    gp = { prog: g ? studyProgram(g) : keys[0], course: g ? studyCourse(g) : null, flow: g ? studyStream(g) : null, first: !!first };
+    document.body.classList.toggle('kg-cx-first', !!first);
+    showPage('group', 'Выбор группы', '');
+    renderGroupPage();
+  }
+  function renderGroupPage() {
+    var P = progs(), cfg = P[gp.prog] || P[Object.keys(P)[0]]; if (!cfg) return;
+    var courses = cfg.courses || {}, ck = Object.keys(courses).sort(function (a, b) { return a - b; });
+    if (!courses[gp.course]) gp.course = ck[0];
+    var flows = Object.keys(courses[gp.course] || {}); if (flows.indexOf(gp.flow) < 0) gp.flow = flows[0];
+    var ids = (courses[gp.course] || {})[gp.flow] || [], cur = curGroup();
+    function pick(kind, v, label, on, small) { return '<button type="button" class="cx-pick' + (on ? ' on' : '') + '" data-gp="' + kind + '" data-v="' + esc(v) + '" aria-pressed="' + on + '">' + label + (small ? '<small>' + small + '</small>' : '') + '</button>'; }
+    var h = '';
+    if (gp.first) h += '<div class="cx-gp-hero"><span class="cx-gp-logo"><img alt="" src="./img/kgmu-logo.webp"></span><div><small>Казанский ГМУ</small><b>Расписание занятий</b><span>Выберите свою группу, выбор запомнится на устройстве</span></div></div>';
+    h += '<div class="cx-lab">Направление</div><div class="cx-picks">' + Object.keys(P).map(function (k) { return pick('prog', k, esc(P[k].label), k === gp.prog); }).join('') + '</div>';
+    h += '<div class="cx-lab">Курс</div><div class="cx-picks cx-picks-c">' + ck.map(function (c) {
+      var n = 0; Object.keys(courses[c]).forEach(function (f) { n += (courses[c][f] || []).length; });
+      return pick('course', c, c + ' курс', c === gp.course, plural(n, 'группа', 'группы', 'групп'));
+    }).join('') + '</div>';
+    if (flows.length > 1) h += '<div class="cx-lab">Поток</div><div class="cx-picks">' + flows.map(function (f) {
+      var a = courses[gp.course][f] || [], custom = gp.prog === 'stomatologiya' && gp.course === '3';
+      return pick('flow', f, custom && a.length ? 'Группы ' + esc(a[0]) + '–' + esc(a[a.length - 1]) : f + '-й поток', f === gp.flow);
+    }).join('') + '</div>';
+    h += '<div class="cx-lab">Группа</div><div class="cx-ggrid">' + (ids.length ? ids.map(function (id) {
+      var dev = false; try { dev = isDevGroup(id); } catch (e) {}
+      return '<button type="button" class="cx-gt gl' + (id === cur ? ' on' : '') + '" data-gp="pick" data-v="' + esc(id) + '"' + (id === cur ? ' aria-current="true"' : '') + '><b>' + esc(id) + '</b><small>' + (id === cur ? 'текущая' : dev ? 'в разработке' : 'открыть') + '</small></button>';
+    }).join('') : '<div class="cx-empty gl">Групп нет</div>') + '</div>';
+    $('kgPage').innerHTML = h;
+  }
+  function pickGroup(id) {
+    var first = gp && gp.first;
+    gp = null; document.body.classList.remove('kg-cx-first');
+    function go() { if (go.done) return; go.done = true; try { selectStudyGroup(id); } catch (e) { console.warn(e); } }
+    if (first) { state.page = null; go(); return; }
+    if (id === curGroup()) { back(); return; }
+    /* сначала дождаться возврата по истории, иначе он затрёт ?studyGroup= новой группы */
+    window.addEventListener('popstate', function () { setTimeout(go, 0); }, { once: true });
+    setTimeout(go, 400);
+    back();
+  }
+
+  /* ---------- компактный вид: календарь и ДЗ ---------- */
+  var MONN = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  function monthOf(key) { return key.slice(0, 8) + '01'; }
+  function showCal(key) {
+    key = key || (typeof selectedDate !== 'undefined' && selectedDate) || today();
+    state.calSel = key; state.calMonth = monthOf(key);
+    showPage('calendar', 'Календарь и ДЗ', '<section class="cx-cal gl" id="cxCal"></section><div class="cx-calp" id="cxCalSlot"></div>');
+    try { selectDate(key, false); } catch (e) {}
+    moveInto($('calendarDayPanel'), $('cxCalSlot'));
+    renderCal();
+  }
+  function renderCal() {
+    var box = $('cxCal'); if (!box) return;
+    var m0 = parseISO(state.calMonth), y = m0.getFullYear(), m = m0.getMonth(), t = today();
+    var off = (new Date(y, m, 1, 12).getDay() + 6) % 7, cnt = new Date(y, m + 1, 0, 12).getDate(), total = Math.ceil((off + cnt) / 7) * 7, cells = '';
+    for (var i = 0; i < total; i++) {
+      var d = new Date(y, m, 1 - off + i, 12), k = dateISO(d), out = d.getMonth() !== m, nl = liveOf(k).length, ns = [], ch = false;
+      try { ns = visibleNotes(k); } catch (e) {}
+      try { ch = amendments.some(function (a) { return a.date === k || a.targetDate === k; }); } catch (e) {}
+      var mod = ns.some(function (n) { return n.type === 'module'; }), hw = ns.some(function (n) { return n.type === 'homework'; });
+      cells += '<button type="button" class="cx-cd' + (out ? ' out' : '') + (k === t ? ' t' : '') + (k === state.calSel ? ' sel' : '') + '" data-cal="d" data-d="' + k + '" aria-pressed="' + (k === state.calSel) + '" aria-label="' + esc(niceDate(k)) + (nl ? ', ' + plural(nl, 'пара', 'пары', 'пар') : '') + (mod ? ', модуль' : '') + (hw ? ', ДЗ' : '') + (ch ? ', изменение' : '') + '">' +
+        '<b>' + d.getDate() + '</b><i>' + new Array(Math.min(nl, 4) + 1).join('<em></em>') + '</i><span>' + (mod ? '<u class="m"></u>' : '') + (hw ? '<u class="h"></u>' : '') + (ch ? '<u class="c"></u>' : '') + '</span></button>';
+    }
+    box.innerHTML = '<div class="cx-calh"><button type="button" class="cx-ib gl" data-cal="m" data-n="-1" aria-label="Предыдущий месяц">' + ic('left') + '</button>' +
+      '<div><h2>' + MONN[m] + ' ' + y + '</h2>' + (monthOf(t) !== state.calMonth ? '<button type="button" class="cx-today" data-cal="today">Сегодня</button>' : '<small>точки — пары, цвет — записи</small>') + '</div>' +
+      '<button type="button" class="cx-ib gl" data-cal="m" data-n="1" aria-label="Следующий месяц">' + ic('right') + '</button></div>' +
+      '<div class="cx-cw" aria-hidden="true">' + DOWS.map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div><div class="cx-cg">' + cells + '</div>' +
+      '<div class="cx-leg"><span><u class="m"></u>Модуль</span><span><u class="h"></u>ДЗ</span><span><u class="c"></u>Изменение</span></div>';
+  }
+  function calSelect(key) {
+    state.calSel = key; state.calMonth = monthOf(key);
+    try { selectDate(key, false); } catch (e) {}
+    renderCal();
+  }
+  function onCxPage(ev) {
+    var a = ev.target.closest('[data-gp],[data-cal]'); if (!a) return;
+    if (a.dataset.gp) {
+      if (!gp) return;
+      var k = a.dataset.gp, v = a.dataset.v;
+      if (k === 'pick') return pickGroup(v);
+      if (k === 'prog') { gp.prog = v; gp.course = null; gp.flow = null; }
+      else if (k === 'course') { gp.course = v; gp.flow = null; }
+      else if (k === 'flow') gp.flow = v;
+      renderGroupPage();
+      return;
+    }
+    var c = a.dataset.cal;
+    if (c === 'd') calSelect(a.dataset.d);
+    else if (c === 'today') calSelect(today());
+    else if (c === 'm') { var d = parseISO(state.calMonth); state.calMonth = dateISO(new Date(d.getFullYear(), d.getMonth() + (+a.dataset.n), 1, 12)); renderCal(); }
+  }
+  /* старые кнопки «К расписанию», «К занятиям», «Открыть день» ведут на новые экраны */
+  function bootCxHooks() {
+    var sv = window.setView;
+    if (typeof sv === 'function' && !sv.__kgcx) {
+      var f = function (v) {
+        if (state.page) {
+          if (v === 'calendar') { showCal(typeof selectedDate !== 'undefined' ? selectedDate : null); return; }
+          if (v === 'today' || v === 'schedule') { back(); return; }
+        }
+        return sv.apply(this, arguments);
+      };
+      f.__kgcx = true; window.setView = f;
+    }
+    window.showGroupChooser = function () { navigate('group'); };
+    wrap('renderCalendar', function () {
+      if (state.page !== 'calendar') return;
+      if (typeof selectedDate !== 'undefined' && selectedDate && selectedDate !== state.calSel) { state.calSel = selectedDate; state.calMonth = monthOf(selectedDate); }
+      renderCal();
+    });
+    $('kgPage').addEventListener('click', onCxPage);
+    if (!curGroup()) showGroupPage(true);
   }
 
   /* ---------- связка со старым приложением ---------- */
@@ -828,6 +957,7 @@
     wrap('newsRender', renderSoon);
     wrap('cloudLoadPermissions', renderSoon);
     wrap('activateStudyGroup', function () { state.date = null; state.open = null; rememberGroup(); goHome(true); });
+    if (UI === 'cx') bootCxHooks();
     applyTGTheme();
     render();
     setInterval(function () { if (!state.page && !document.hidden) render(); }, 60000);
