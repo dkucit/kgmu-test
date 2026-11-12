@@ -19,6 +19,7 @@ let cloudSession = null;
 let cloudAssignments = [];
 let cloudNotes = [];
 let cloudAmendments = [];
+let cloudEdits = []; // заявки на правку (edit_of = id исходной записи)
 let cloudStatus = 'Подключение…';
 let cloudRequestVersion = 0;
 let cloudRefreshPromise = null;
@@ -29,7 +30,14 @@ function cloudCanEdit(gr=selectedStudyGroup) {
   return Boolean(cloudSession?.access_token && cloudAssignments.some(a => a.study_group === gr || a.study_group === '*'));
 }
 function cloudCanContribute(){return Boolean(navigator.onLine!==false);}
-function cloudCanEditNote(n){return !n?false:(!n._remote || cloudCanEdit() || Boolean(cloudSession?.user?.id && n._remoteOwnerId===cloudSession.user.id));}
+function cloudIsMine(n){return Boolean(cloudSession?.user?.id && n?._remoteOwnerId===cloudSession.user.id);}
+/* Править напрямую: свои локальные записи, редактор группы, автор своей ещё не подтверждённой записи. Иначе — заявка старосте. */
+function cloudCanEditNote(n){return !n?false:(!n._remote || cloudCanEdit() || (cloudIsMine(n) && n._status!=='approved'));}
+function cloudNoteEditMode(n){return cloudCanEditNote(n)?'direct':(n?._remote&&cloudCanContribute()?'request':'');}
+/* Удалять общие записи могут только староста и админ; автор может отозвать свою неподтверждённую запись */
+function cloudCanManage(gr=selectedStudyGroup){return Boolean(cloudSession?.access_token && cloudAssignments.some(a=>(a.role==='admin'||a.role==='starosta')&&(a.study_group===gr||a.study_group==='*')));}
+function cloudCanDeleteNote(n){return !n?false:(!n._remote || cloudCanManage() || (cloudIsMine(n) && n._status!=='approved'));}
+function cloudMyEdit(n){return cloudEdits.find(e=>e.editOf===n.id&&cloudIsMine(e)&&e._status!=='approved');}
 function kgTgUser(){ const m=cloudSession?.user?.user_metadata; return m?.tg_id ? m : null; }
 function kgTgName(){ const u=kgTgUser(); return u ? (u.username ? '@'+u.username : (u.name || 'ID '+u.tg_id)) : ''; }
 function cloudRoleIn(gr=selectedStudyGroup){
@@ -159,7 +167,9 @@ async function cloudReadGroup(gr){
   ]);
   if(!Array.isArray(nr)||!Array.isArray(ar))throw Error('Некорректный ответ сервера');
   if(nr.length>=1000||ar.length>=1000)throw Error('Слишком много записей: требуется постраничная загрузка');
-  return {notes:nr.filter(validNote).map(n=>({...sanitizeNote(n),_remoteOwnerId:n.created_by||n.updated_by||null,_status:n.status||'approved'})),amendments:ar.map(a=>({...a,eventId:a.event_id,targetDate:a.target_date,newStart:a.new_start,newEnd:a.new_end,newLocation:a.new_location,newTeacher:a.new_teacher})).filter(validAmendment).map(sanitizeAmendment)};
+  const mapN=n=>({...sanitizeNote(n),_remoteOwnerId:n.created_by||n.updated_by||null,_status:n.status||'approved',_remote:true,editOf:n.edit_of||null});
+  const ok=nr.filter(validNote);
+  return {notes:ok.filter(n=>!n.edit_of).map(mapN),edits:ok.filter(n=>n.edit_of).map(mapN),amendments:ar.map(a=>({...a,eventId:a.event_id,targetDate:a.target_date,newStart:a.new_start,newEnd:a.new_end,newLocation:a.new_location,newTeacher:a.new_teacher})).filter(validAmendment).map(sanitizeAmendment)};
 }
 async function cloudRefreshGroup(quiet=false){
   const gr=selectedStudyGroup;
@@ -169,7 +179,7 @@ async function cloudRefreshGroup(quiet=false){
   try{
     const result=await cloudReadGroup(gr);
     if(request!==cloudRequestVersion||selectedStudyGroup!==gr)return;
-    cloudNotes=result.notes;cloudAmendments=result.amendments;
+    cloudNotes=result.notes;cloudEdits=result.edits;cloudAmendments=result.amendments;
     cloudLastUpdated=new Date();cloudMergeRecords();cloudRedraw();
     cloudSetStatus('Подключено · '+gr+' · '+cloudLastUpdated.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){
@@ -181,7 +191,7 @@ async function cloudRefreshGroup(quiet=false){
 }
 function cloudGroupChanged(){
   cloudRequestVersion++;
-  cloudNotes=[];cloudAmendments=[];
+  cloudNotes=[];cloudEdits=[];cloudAmendments=[];
   cloudMergeRecords();cloudUpdateUI();
   cloudRefreshGroup();
 }
@@ -222,7 +232,7 @@ async function cloudLogout(){
   if(token){fetch(KGMU_CLOUD.url+'/auth/v1/logout',{method:'POST',headers:{'apikey':KGMU_CLOUD.key,'Authorization':'Bearer '+token}}).catch(()=>{});}
 }
 function cloudShouldSaveNote(prev){
-  return Boolean(prev?._remote ? cloudCanEditNote(prev) : document.getElementById('editCloud')?.checked && cloudCanContribute());
+  return Boolean(prev?._remote ? cloudNoteEditMode(prev) : document.getElementById('editCloud')?.checked && cloudCanContribute());
 }
 function cloudShouldSaveAmendment(prev){
   return Boolean(prev?prev._remote:document.getElementById('changeCloud')?.checked && cloudCanEdit());
@@ -234,7 +244,7 @@ function cloudPrepareNoteEditor(prev){
   document.getElementById('editCloudWrap').hidden=false;
   field.checked=existingCloud || (!prev&&cloudCanContribute());
   field.disabled=existingCloud;
-  document.getElementById('editCloudHint').textContent=existingCloud?'Общую запись может изменить автор или редактор группы.':
+  document.getElementById('editCloudHint').textContent=existingCloud?(cloudNoteEditMode(prev)==='request'?'Правка уйдёт старосте на подтверждение. До этого группа видит прежний вариант.':'Изменение увидит вся группа.'):
     'Отметьте, чтобы запись увидела вся группа — после подтверждения старосты. Без отметки она останется только в вашем браузере.';
 }
 function cloudPrepareChangeEditor(){
@@ -259,20 +269,29 @@ async function cloudWrite(table,record,existing=false){
 }
 async function cloudSaveNote(n,prev){
   try{
-    if(prev?._remote&&!cloudCanEditNote(prev))throw Error('Можно изменять только собственные общие записи');
+    if(prev?._remote&&cloudNoteEditMode(prev)==='request'){
+      const mine=cloudMyEdit(prev),base=mine||prev;
+      const same=['date','type','subject','subgroup','title','details','resources'].every(k=>String(n[k]||'')===String(base[k]||''));
+      if(same){toast('Вы ничего не изменили');return;}
+      if(mine)await cloudWrite('kgmu_notes',{...cloudNotePayload(n),id:mine.id},true);
+      else await cloudWrite('kgmu_notes',{...cloudNotePayload(n),id:'e-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),edit_of:prev.id},false);
+      document.getElementById('recordEditor').hidden=true;editId=null;
+      await cloudRefreshGroup(true);toast('⏳ Правка отправлена старосте на подтверждение');return;
+    }
+    if(prev?._remote&&!cloudCanEditNote(prev))throw Error('Нет прав для изменения этой записи');
     await cloudWrite('kgmu_notes',cloudNotePayload(n),!!prev?._remote);
     document.getElementById('recordEditor').hidden=true;editId=null;
     await cloudRefreshGroup(true);toast(cloudCanEdit()?'☁ Запись опубликована для группы':'⏳ Отправлено старосте на подтверждение');
   }catch(e){toast('Не опубликовано: '+e.message);}
 }
 async function cloudDeleteNote(n){
-  if(!cloudCanEditNote(n)){toast('Удалять можно только свою общую запись');return;}
-  if(!confirm('Удалить общую запись для ВСЕЙ группы «'+n.title+'»?'))return;
+  if(!cloudCanDeleteNote(n)){toast('Удалять общие записи может только староста или администратор');return;}
+  if(!confirm(n.editOf?'Удалить заявку на правку «'+n.title+'»?':'Удалить общую запись для ВСЕЙ группы «'+n.title+'»?'))return;
   try{
     const result=await cloudRequest('/rest/v1/kgmu_notes?id=eq.'+encodeURIComponent(n.id)+'&study_group=eq.'+encodeURIComponent(selectedStudyGroup),{
       method:'DELETE',headers:{'Prefer':'return=representation'}});
     if(!Array.isArray(result)||result.length!==1)throw Error('Не удалось подтвердить удаление');
-    await cloudRefreshGroup(true);toast('Общая запись удалена');
+    await cloudRefreshGroup(true);toast(n.editOf?'Заявка удалена':'Общая запись удалена');
   }catch(e){toast('Ошибка удаления: '+e.message);}
 }
 async function cloudSaveAmendment(a,prev){
@@ -319,8 +338,41 @@ function cloudShowRecordSource(n){
     return s;
   }
   if(n._status==='rejected')return ' · <span class="kg-rejected">✕ отклонено старостой</span>';
-  return ' · ☁ общая запись';
+  return ' · ☁ общая запись'+cloudShowEdits(n);
 }
+const KG_EDIT_FIELDS=[['date','Дата'],['type','Тип'],['subject','Предмет'],['subgroup','Подгруппа'],['title','Тема'],['details','Описание'],['resources','Материалы']];
+function cloudEditVal(k,v){
+  if(k==='type')return v==='module'?'модуль / зачёт':'ДЗ';
+  if(k==='subgroup')return v==='all'?'вся группа':v+'-я подгруппа';
+  if(k==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(v||''))return v.split('-').reverse().join('.');
+  return v||'—';
+}
+/* Заявки на правку под исходной записью: старосте — разница и кнопки, автору — статус своей заявки */
+function cloudShowEdits(n){
+  const list=cloudEdits.filter(e=>e.editOf===n.id&&(cloudCanEdit()||cloudIsMine(e)));
+  if(!list.length)return '';
+  return list.map(e=>{
+    const diff=KG_EDIT_FIELDS.filter(([k])=>String(e[k]||'')!==String(n[k]||'')).map(([k,l])=>'<div class="kg-diff"><b>'+l+':</b> <s>'+cloudEsc(cloudEditVal(k,n[k]))+'</s> → '+cloudEsc(cloudEditVal(k,e[k]))+'</div>').join('')||'<div class="kg-diff">без изменений</div>';
+    let h='<div class="kg-edit-req"><div>'+(e._status==='rejected'?'<span class="kg-rejected">✕ Правка отклонена старостой</span>':'<span class="kg-pending">✏️ '+(cloudIsMine(e)?'Ваша правка ждёт подтверждения старосты':'Предложена правка')+'</span>')+'</div>'+diff+'<div class="kg-edit-acts">';
+    if(cloudCanEdit()&&e._status==='pending')h+='<button class="small-btn" type="button" data-edit-decide="'+cloudEsc(e.id)+'" data-ok="1">✓ Применить</button><button class="small-btn" type="button" data-edit-decide="'+cloudEsc(e.id)+'" data-ok="0">✕ Отклонить</button>';
+    if(cloudIsMine(e)||cloudCanManage())h+='<button class="small-btn" type="button" data-edit-withdraw="'+cloudEsc(e.id)+'">'+(cloudIsMine(e)?'Отозвать':'Удалить заявку')+'</button>';
+    return h+'</div></div>';
+  }).join('');
+}
+async function cloudDecideEdit(id,ok){
+  if(!cloudCanEdit()){toast('Подтверждать правки может только староста группы');return;}
+  try{
+    await cloudRequest('/rest/v1/rpc/kgmu_note_edit_decide',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({req:id,approve:ok})});
+    await cloudRefreshGroup(true);toast(ok?'✓ Правка применена — группа видит новый вариант':'✕ Правка отклонена');
+  }catch(e){toast('Ошибка: '+e.message);}
+}
+document.addEventListener('click',e=>{
+  const d=e.target.closest('[data-edit-decide]'),w=e.target.closest('[data-edit-withdraw]');
+  if(!d&&!w)return;
+  e.preventDefault();e.stopPropagation();
+  if(d)cloudDecideEdit(d.dataset.editDecide,d.dataset.ok==='1');
+  else{const r=cloudEdits.find(x=>x.id===w.dataset.editWithdraw);if(r)cloudDeleteNote(r);}
+},true);
 function cloudShowAmendmentSource(a){return a._remote?' · ☁ общая запись':' · 📱 только у вас';}
 async function cloudInit(){
   try{
@@ -349,7 +401,7 @@ async function cloudInit(){
 cloudInit();
 
 /* KGMU: модерация ДЗ — запись видна всей группе после подтверждения старосты (роль в kgmu_editors). */
-(function(){const st=document.createElement('style');st.textContent='.kg-pending{color:#b45309;font-weight:700}.kg-rejected{color:#b91c1c;font-weight:700}.kg-mod-btn{margin-left:6px}';document.head.appendChild(st);})();
+(function(){const st=document.createElement('style');st.textContent='.kg-pending{color:#b45309;font-weight:700}.kg-rejected{color:#b91c1c;font-weight:700}.kg-mod-btn{margin-left:6px}.kg-edit-req{margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(180,83,9,.08);font-size:13px;line-height:1.4;white-space:normal}.kg-diff s{opacity:.6}.kg-edit-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}';document.head.appendChild(st);})();
 function cloudEsc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 async function cloudSetNoteStatus(id,status){
   if(!cloudCanEdit()){toast('Подтверждать записи может только староста группы');return;}
@@ -372,8 +424,8 @@ cloudRefreshGroup=async function(quiet){
   const res=await kgOrigRefreshGroup(quiet);
   try{
     if(cloudCanEdit()){
-      const n=cloudNotes.filter(x=>x._status==='pending').length;
-      if(n&&n!==window.kgPendingSeen)toast('📝 Ждут вашего подтверждения: '+n+' ДЗ');
+      const n=cloudNotes.filter(x=>x._status==='pending').length+cloudEdits.filter(x=>x._status==='pending').length;
+      if(n&&n!==window.kgPendingSeen)toast('📝 Ждут вашего подтверждения: '+n+' (записи и правки)');
       window.kgPendingSeen=n;
     }
   }catch(_){}
