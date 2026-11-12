@@ -640,7 +640,7 @@
     }
     if (live || (next && now >= mins(sl[0][0].start))) {
       var bt = null;
-      for (var i = 1; i < sl.length; i++) { if (mins(sl[i][0].start) > now && mins(sl[i][0].start) - mins(sl[i - 1][0].end) >= 10) { bt = [sl[i - 1][0].end, sl[i][0].start]; break; } }
+      for (var i = 1; i < sl.length; i++) { if (mins(sl[i - 1][0].end) > now && mins(sl[i][0].start) - mins(sl[i - 1][0].end) >= 10) { bt = [sl[i - 1][0].end, sl[i][0].start]; break; } }
       var last = sl[sl.length - 1][0].end;
       var tile1 = bt ? '<div class="cx-tile gl"><div class="cx-tl">' + gIco('cup', '#FFD08A', '#FF8A3D', 1) + 'Перерыв</div><div class="cx-tv">' + dur(mins(bt[1]) - mins(bt[0])) + '</div><div class="cx-ts">' + esc(bt[0]) + ' – ' + esc(bt[1]) + '</div></div>'
         : '<div class="cx-tile gl"><div class="cx-tl">' + gIco('flag', '#B79CFF', '#7C5CF0', 1) + 'Конец пар</div><div class="cx-tv">' + esc(last) + '</div><div class="cx-ts">через ' + dur(Math.max(0, mins(last) - now)) + '</div></div>';
