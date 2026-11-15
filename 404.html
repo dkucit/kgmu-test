@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KSMU Community переехал</title>
+<meta name="robots" content="noindex">
+<script>
+(function () {
+  var p = location.pathname.replace(/^\/kgmu-test\/?/, '/');
+  var to = 'https://ksmucommunity.github.io' + p + location.search + location.hash;
+  try { if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); }); } catch (e) {}
+  try { if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); } catch (e) {}
+  location.replace(to);
+})();
+</script>
+<style>body{font:16px/1.5 system-ui,sans-serif;background:#EEF2F8;color:#1c1c1e;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}a{color:#8C2B33;font-weight:600}</style>
+</head><body><p>Сайт переехал: <a href="https://ksmucommunity.github.io/">ksmucommunity.github.io</a></p></body></html>
